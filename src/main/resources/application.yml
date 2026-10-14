@@ -1,0 +1,77 @@
+# ╔══════════════════════════════════════════════════════════════════════════════╗
+# ║  SDUI Forge — Application Configuration                                    ║
+# ║  Spring Boot 3.x + Spring Data JDBC + Oracle 23ai + Virtual Threads        ║
+# ╚══════════════════════════════════════════════════════════════════════════════╝
+
+server:
+  port: 8080
+  servlet:
+    context-path: /sdui-forge
+
+spring:
+  application:
+    name: core-sdui-gateway
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Virtual Threads (Project Loom)
+  # Enables platform-thread-free request handling via Tomcat virtual thread executor.
+  # Every HTTP request, @Async, and @Scheduled task runs on a virtual thread.
+  # ─────────────────────────────────────────────────────────────────────────────
+  threads:
+    virtual:
+      enabled: true
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Oracle Datasource + HikariCP
+  # Pool is intentionally kept small because virtual threads never block
+  # platform threads; a large pool would waste DB server-side resources.
+  # ─────────────────────────────────────────────────────────────────────────────
+  datasource:
+    url: jdbc:oracle:thin:@//localhost:1521/FREEPDB1
+    username: ${DB_USERNAME:sdui_admin}
+    password: ${DB_PASSWORD:sdui_secret}
+    driver-class-name: oracle.jdbc.OracleDriver
+
+    hikari:
+      pool-name: sdui-forge-pool
+      # With virtual threads, fewer connections suffice — matches CPU core count
+      maximum-pool-size: 10
+      minimum-idle: 5
+      idle-timeout: 300000        # 5 minutes
+      max-lifetime: 1800000       # 30 minutes — stay under Oracle idle timeout
+      connection-timeout: 20000   # 20 seconds — fail fast for circuit-breaker compat
+      validation-timeout: 5000
+      connection-test-query: SELECT 1 FROM DUAL
+      # Leak detection — critical for banking: flag connections held > 30 seconds
+      leak-detection-threshold: 30000
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Jackson Serialization Defaults
+  # ─────────────────────────────────────────────────────────────────────────────
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+      indent-output: false
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Actuator: expose health + info for container orchestration probes
+# ─────────────────────────────────────────────────────────────────────────────
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when-authorized
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Logging
+# ─────────────────────────────────────────────────────────────────────────────
+logging:
+  level:
+    root: INFO
+    com.sdui.forge: DEBUG
+    org.springframework.data.jdbc: DEBUG
+    com.zaxxer.hikari: INFO
