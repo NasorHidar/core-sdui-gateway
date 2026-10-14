@@ -48,6 +48,9 @@ build/
 .vercel/
 
 # =========================
+# Local tool state (Puku Editor plans, cache, etc.)
+.puku/
+
 # OS & System Files
 # =========================
 .DS_Store
