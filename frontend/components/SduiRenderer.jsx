@@ -44,9 +44,13 @@ function nodeKey(node, index) {
 function renderNode(node, index) {
   if (!node || typeof node !== "object") return null;
 
-  const { type, props = {}, children } = node;
+  const { type, id: nodeId, props = {}, children } = node;
   const Component = resolve(type);
   const key = nodeKey(node, index);
+
+  // Phase 3: pass the blueprint node's `id` as a prop so data-bound
+  // components (SkeletonForm, SkeletonGrid) can scope their state.
+  const mergedProps = { ...props, ...(nodeId ? { id: nodeId } : {}) };
 
   // If the node itself contains children, recurse and pass them down via
   // a `children` prop. This keeps the engine future-proof for container
@@ -55,13 +59,13 @@ function renderNode(node, index) {
 
   if (childArray) {
     return (
-      <Component key={key} {...props}>
+      <Component key={key} {...mergedProps}>
         {childArray.map((child, i) => renderNode(child, i))}
       </Component>
     );
   }
 
-  return <Component key={key} {...props} />;
+  return <Component key={key} {...mergedProps} />;
 }
 
 /**

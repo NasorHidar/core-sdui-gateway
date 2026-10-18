@@ -1,15 +1,15 @@
 /**
- * mockBlueprint
+ * mockBlueprint (Phase 3 — Updated)
  * --------------------------------------------------------------------
  * In-memory mock of the Phase-1 backend's
  *   GET /sdui-forge/api/v1/pages/{pageId}/blueprint
  * response. Used by the Next.js server component until the real
  * fetch is wired in.
  *
- * The shape matches the user's authoritative Phase-2 spec
- * (top-level `components` array) AND we expose an extra adapter
- * that maps the live Phase-1 `uiBlueprint.widgets` shape onto it,
- * so the same renderer works against both payloads.
+ * Phase 3 changes:
+ *   - Fields now include `rules` objects for dynamic validation.
+ *   - Added Skeleton_Grid component to demo data binding.
+ *   - Page 101 models a full search → grid flow.
  */
 
 const BLUEPRINTS = {
@@ -22,7 +22,7 @@ const BLUEPRINTS = {
         id: "info_card_1",
         props: {
           title: "Account Info",
-          content: "Enter details below to view account information.",
+          content: "Enter details below to search for account statements.",
         },
       },
       {
@@ -35,17 +35,33 @@ const BLUEPRINTS = {
               name: "accountNo",
               label: "Account Number",
               inputType: "text",
-              required: true,
-              placeholder: "e.g. 1234567890",
+              placeholder: "e.g. 1234567890123",
+              rules: {
+                required: true,
+                minLength: 13,
+                pattern: "^\\d+$",
+                patternMessage: "Account number must contain only digits",
+              },
             },
             {
               name: "branchCode",
               label: "Branch Code",
               inputType: "text",
-              required: false,
+              placeholder: "e.g. BR001",
+              rules: {
+                required: false,
+                maxLength: 10,
+              },
             },
           ],
           actionId: 101,
+        },
+      },
+      {
+        type: "Skeleton_Grid",
+        id: "statement_grid_1",
+        props: {
+          title: "Account Statements",
         },
       },
     ],

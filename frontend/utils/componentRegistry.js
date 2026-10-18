@@ -16,6 +16,7 @@
 
 import SkeletonCard from "@/components/skeletons/SkeletonCard";
 import SkeletonForm from "@/components/skeletons/SkeletonForm";
+import SkeletonGrid from "@/components/skeletons/SkeletonGrid";
 import UnknownComponent from "@/components/skeletons/UnknownComponent";
 
 /**
@@ -25,7 +26,7 @@ import UnknownComponent from "@/components/skeletons/UnknownComponent";
 const REGISTRY = {
   Skeleton_Card: SkeletonCard,
   Skeleton_Form: SkeletonForm,
-  // Future: Skeleton_Table, Skeleton_Chart, ... added in later phases.
+  Skeleton_Grid: SkeletonGrid,
 };
 
 /**
