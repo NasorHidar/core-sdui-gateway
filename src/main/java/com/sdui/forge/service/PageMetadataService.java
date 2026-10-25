@@ -13,11 +13,16 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
 import java.util.stream.Collectors;
+
+import static com.sdui.forge.config.RedisCacheConfig.CACHE_MENU_TREE;
+import static com.sdui.forge.config.RedisCacheConfig.CACHE_PAGE_BLUEPRINT;
 
 /**
  * Core service for SDUI page metadata operations.
@@ -31,6 +36,10 @@ import java.util.stream.Collectors;
  *     <li>Enable Oracle read-consistency optimizations</li>
  *     <li>Prevent accidental writes in query-only flows</li>
  * </ul>
+ *
+ * <p><b>Phase 4 — Caching:</b> {@code getPageBlueprint} and {@code getMenuTree}
+ * are backed by Redis via {@code @Cacheable}. Cache entries are evicted when
+ * the page version changes or an admin triggers a manual flush.</p>
  */
 @Service
 public class PageMetadataService {
@@ -70,11 +79,15 @@ public class PageMetadataService {
      * <p>This avoids recursive DB queries and builds the tree in-memory
      * from a single SQL round-trip.</p>
      *
+     * <p><b>Cached</b> in Redis under {@code menuTree} with a 60-minute TTL.
+     * The menu tree changes infrequently; a single cache key suffices.</p>
+     *
      * @return list of root-level {@link MenuNodeDto} with nested children
      */
+    @Cacheable(value = CACHE_MENU_TREE, key = "'all'")
     @Transactional(readOnly = true)
     public List<MenuNodeDto> getMenuTree() {
-        log.debug("Fetching hierarchical menu tree");
+        log.debug("Fetching hierarchical menu tree (cache miss)");
 
         List<ServiceDetails> flatRows = serviceDetailsRepository.findActiveMenuHierarchy();
 
@@ -132,13 +145,18 @@ public class PageMetadataService {
      * The JSON blueprint string is parsed into an Object so Jackson serializes
      * it as a native JSON object in the response (not a double-escaped string).</p>
      *
+     * <p><b>Cached</b> in Redis under {@code pageBlueprint::{pageId}} with a
+     * 30-minute TTL. Evicted when the page version is updated via
+     * {@link #evictBlueprintCache(Long)}.</p>
+     *
      * @param pageId the page identifier
      * @return composite {@link PageBlueprintDto} containing blueprint + actions
      * @throws ResourceNotFoundException if no page exists with the given ID
      */
+    @Cacheable(value = CACHE_PAGE_BLUEPRINT, key = "#pageId")
     @Transactional(readOnly = true)
     public PageBlueprintDto getPageBlueprint(Long pageId) {
-        log.debug("Fetching page blueprint for pageId={}", pageId);
+        log.debug("Fetching page blueprint for pageId={} (cache miss)", pageId);
 
         // 1. Fetch the page template
         PageTemplate page = pageTemplateRepository.findById(pageId)
@@ -172,6 +190,41 @@ public class PageMetadataService {
                 parsedBlueprint,
                 actionDtos
         );
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Cache Eviction
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Evicts the cached blueprint for a specific page.
+     *
+     * <p>Call this when {@code PAGE_VERSION} is updated in the database —
+     * either from an admin API, a database trigger, or a version-bump workflow.
+     * The next request for this page will repopulate the cache from Oracle.</p>
+     *
+     * @param pageId the page whose cache entry should be invalidated
+     */
+    @CacheEvict(value = CACHE_PAGE_BLUEPRINT, key = "#pageId")
+    public void evictBlueprintCache(Long pageId) {
+        log.info("Cache evicted: {} for pageId={}", CACHE_PAGE_BLUEPRINT, pageId);
+    }
+
+    /**
+     * Evicts all cached blueprints. Used for bulk schema migrations or
+     * emergency cache flushes.
+     */
+    @CacheEvict(value = CACHE_PAGE_BLUEPRINT, allEntries = true)
+    public void evictAllBlueprintCaches() {
+        log.info("Cache evicted: all entries in {}", CACHE_PAGE_BLUEPRINT);
+    }
+
+    /**
+     * Evicts the cached menu tree. Call when SERVICE_DETAILS rows change.
+     */
+    @CacheEvict(value = CACHE_MENU_TREE, allEntries = true)
+    public void evictMenuTreeCache() {
+        log.info("Cache evicted: all entries in {}", CACHE_MENU_TREE);
     }
 
     // ─────────────────────────────────────────────────────────────────────────

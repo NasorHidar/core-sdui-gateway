@@ -23,6 +23,7 @@
  */
 
 import useSduiStore from "@/store/useSduiStore";
+import useAppStore from "@/store/useAppStore";
 
 // ─── Mock Action Metadata ──────────────────────────────────────────────
 // Simulates the PAGE_ACTION table rows fetched from
@@ -41,8 +42,22 @@ const ACTION_REGISTRY = {
     actionId: 102,
     actionType: "SUBMIT_API",
     httpMethod: "POST",
-    targetEndpoint: "/api/v1/core/accounts/create",
+    targetEndpoint: "/api/v1/core/transfers/execute",
     targetWidget: null, // No auto-populate — success notification only
+  },
+  104: {
+    actionId: 104,
+    actionType: "SUBMIT_API",
+    httpMethod: "POST",
+    targetEndpoint: "/api/v1/core/cards/preferences",
+    targetWidget: null,
+  },
+  105: {
+    actionId: 105,
+    actionType: "SUBMIT_API",
+    httpMethod: "POST",
+    targetEndpoint: "/api/v1/core/loans/calculate",
+    targetWidget: null,
   },
 };
 
@@ -82,6 +97,11 @@ function buildRequest(meta, payload) {
     "Content-Type": "application/json",
     Accept: "application/json",
   };
+
+  const jwtToken = useAppStore.getState().jwtToken;
+  if (jwtToken) {
+    headers["Authorization"] = `Bearer ${jwtToken}`;
+  }
 
   if (method === "GET" || method === "HEAD") {
     // Append payload as query params

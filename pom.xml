@@ -21,6 +21,19 @@
         <java.version>21</java.version>
     </properties>
 
+    <dependencyManagement>
+        <dependencies>
+            <!-- Testcontainers BOM — pins all TC module versions consistently -->
+            <dependency>
+                <groupId>org.testcontainers</groupId>
+                <artifactId>testcontainers-bom</artifactId>
+                <version>1.20.4</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
     <dependencies>
         <!-- ═══════════════════════════════════════════════════════
              Spring Boot Core: Web + Data JDBC (NO JPA/Hibernate)
@@ -42,13 +55,16 @@
             <artifactId>ojdbc11</artifactId>
             <scope>runtime</scope>
         </dependency>
-        <!-- Oracle JSON extensions for OSON/JSON column support -->
-        <dependency>
-            <groupId>com.oracle.database.jdbc</groupId>
-            <artifactId>orajsoda</artifactId>
-            <version>1.1.7</version>
-            <scope>runtime</scope>
-        </dependency>
+        <!--
+            Oracle JSON extensions (orajsoda) intentionally omitted:
+            it is not published to Maven Central — only to Oracle's
+            private repo (https://maven.oracle.com). No source code
+            references it; the JdbcConfig converters handle Oracle
+            JSON columns via the driver's String / byte[] / toString()
+            pathways, which is sufficient for ojdbc11 21+/Oracle 23ai.
+            Re-add with an <oracle-repo> profile if binary OSON
+            deserialisation is later required.
+        -->
 
         <!-- ═══════════════════════════════════════════════════════
              Jackson: JSON serialization/deserialization
@@ -75,11 +91,81 @@
         </dependency>
 
         <!-- ═══════════════════════════════════════════════════════
-             Test Dependencies
+             Phase 4: Spring Security + JWT Authentication
+             ═══════════════════════════════════════════════════════ -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+        <!-- JJWT: modular JWT library (api / impl / jackson) -->
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-api</artifactId>
+            <version>0.12.6</version>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-impl</artifactId>
+            <version>0.12.6</version>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-jackson</artifactId>
+            <version>0.12.6</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- ═══════════════════════════════════════════════════════
+             Phase 4: Redis Caching (Lettuce driver, auto-configured)
+             ═══════════════════════════════════════════════════════ -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-cache</artifactId>
+        </dependency>
+
+        <!-- ═══════════════════════════════════════════════════════
+             Phase 4: Spring Kafka (Async Audit Logging)
+             ═══════════════════════════════════════════════════════ -->
+        <dependency>
+            <groupId>org.springframework.kafka</groupId>
+            <artifactId>spring-kafka</artifactId>
+        </dependency>
+
+        <!-- ═══════════════════════════════════════════════════════
+             Phase 5 Test Dependencies
              ═══════════════════════════════════════════════════════ -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- Testcontainers JUnit 5 integration -->
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- Testcontainers Oracle Free 23ai module -->
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>oracle-free</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- Testcontainers generic container (Redis) -->
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

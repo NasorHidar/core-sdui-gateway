@@ -13,6 +13,7 @@
  */
 
 import SduiRenderer from "@/components/SduiRenderer";
+import { PageErrorBoundary } from "@/components/ErrorBoundary";
 import { fetchBlueprint, normalizeBlueprint } from "@/lib/mockBlueprint";
 
 export default async function DynamicPage({ params }) {
@@ -33,26 +34,28 @@ export default async function DynamicPage({ params }) {
   }
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-10">
-      <header className="mb-8">
-        <p className="text-xs font-semibold uppercase tracking-wider text-brand-700">
-          Page #{pageId}
-        </p>
-        <h1 className="mt-1 text-3xl font-bold text-slate-900">
-          {blueprint?.pageTitle || "Untitled Page"}
-        </h1>
-      </header>
+    <PageErrorBoundary pageId={pageId} pageTitle={blueprint?.pageTitle}>
+      <main className="mx-auto max-w-3xl px-4 py-10">
+        <header className="mb-8">
+          <p className="text-xs font-semibold uppercase tracking-wider text-indigo-600">
+            Page #{pageId}
+          </p>
+          <h1 className="mt-1 text-3xl font-bold text-slate-900">
+            {blueprint?.pageTitle || "Untitled Page"}
+          </h1>
+        </header>
 
-      {errorMessage ? (
-        <div
-          role="alert"
-          className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800"
-        >
-          {errorMessage}
-        </div>
-      ) : null}
+        {errorMessage ? (
+          <div
+            role="alert"
+            className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800"
+          >
+            {errorMessage}
+          </div>
+        ) : null}
 
-      <SduiRenderer blueprint={blueprint} />
-    </main>
+        <SduiRenderer blueprint={blueprint} />
+      </main>
+    </PageErrorBoundary>
   );
 }

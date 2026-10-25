@@ -24,6 +24,7 @@
  */
 
 import { resolve } from "@/utils/componentRegistry";
+import { WidgetErrorBoundary } from "@/components/ErrorBoundary";
 
 /**
  * Compute a stable, unique React key for a node. The backend `id` is
@@ -44,13 +45,13 @@ function nodeKey(node, index) {
 function renderNode(node, index) {
   if (!node || typeof node !== "object") return null;
 
-  const { type, id: nodeId, props = {}, children } = node;
+  const { type, props = {}, children } = node;
   const Component = resolve(type);
   const key = nodeKey(node, index);
 
-  // Phase 3: pass the blueprint node's `id` as a prop so data-bound
-  // components (SkeletonForm, SkeletonGrid) can scope their state.
-  const mergedProps = { ...props, ...(nodeId ? { id: nodeId } : {}) };
+  // Phase 3: forward the node's backend `id` so data-bound widgets
+  // (e.g. SkeletonGrid) can subscribe to widgetData[id] in the store.
+  const allProps = { id: node.id, ...props };
 
   // If the node itself contains children, recurse and pass them down via
   // a `children` prop. This keeps the engine future-proof for container
@@ -59,13 +60,19 @@ function renderNode(node, index) {
 
   if (childArray) {
     return (
-      <Component key={key} {...mergedProps}>
-        {childArray.map((child, i) => renderNode(child, i))}
-      </Component>
+      <WidgetErrorBoundary key={key} widgetId={node.id} widgetType={type}>
+        <Component {...allProps}>
+          {childArray.map((child, i) => renderNode(child, i))}
+        </Component>
+      </WidgetErrorBoundary>
     );
   }
 
-  return <Component key={key} {...mergedProps} />;
+  return (
+    <WidgetErrorBoundary key={key} widgetId={node.id} widgetType={type}>
+      <Component {...allProps} />
+    </WidgetErrorBoundary>
+  );
 }
 
 /**

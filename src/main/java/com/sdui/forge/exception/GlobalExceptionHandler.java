@@ -62,6 +62,46 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * Handles static/unmapped route lookups → HTTP 404.
+     */
+    @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException.class)
+    public ResponseEntity<ApiErrorResponse> handleNoResourceFound(
+            org.springframework.web.servlet.resource.NoResourceFoundException ex,
+            HttpServletRequest request) {
+
+        log.warn("Resource route not found for {}: {}", request.getRequestURI(), ex.getMessage());
+
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(ApiErrorResponse.of(
+                        HttpStatus.NOT_FOUND.value(),
+                        "Not Found",
+                        "Resource not found: " + request.getRequestURI(),
+                        request.getRequestURI()
+                ));
+    }
+
+    /**
+     * Handles authorization access denied → HTTP 403.
+     */
+    @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
+    public ResponseEntity<ApiErrorResponse> handleAccessDenied(
+            org.springframework.security.access.AccessDeniedException ex,
+            HttpServletRequest request) {
+
+        log.warn("Access denied on {}: {}", request.getRequestURI(), ex.getMessage());
+
+        return ResponseEntity
+                .status(HttpStatus.FORBIDDEN)
+                .body(ApiErrorResponse.of(
+                        HttpStatus.FORBIDDEN.value(),
+                        "Forbidden",
+                        "Access denied. Required permissions not held.",
+                        request.getRequestURI()
+                ));
+    }
+
+    /**
      * Catch-all for unexpected exceptions → HTTP 500.
      *
      * <p>Logs full stack trace internally but returns a generic message

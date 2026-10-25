@@ -34,16 +34,49 @@ spring:
 
     hikari:
       pool-name: sdui-forge-pool
-      # With virtual threads, fewer connections suffice — matches CPU core count
-      maximum-pool-size: 10
-      minimum-idle: 5
-      idle-timeout: 300000        # 5 minutes
-      max-lifetime: 1800000       # 30 minutes — stay under Oracle idle timeout
-      connection-timeout: 20000   # 20 seconds — fail fast for circuit-breaker compat
-      validation-timeout: 5000
-      connection-test-query: SELECT 1 FROM DUAL
-      # Leak detection — critical for banking: flag connections held > 30 seconds
-      leak-detection-threshold: 30000
+
+      # ── Pool sizing: Tuned for Java 21 Virtual Threads ────────────────────
+      # With VT, threads yield during I/O (JDBC wait) rather than block a
+      # platform thread. This means a small number of physical Oracle server
+      # processes can serve a very high request concurrency. The old rule
+      # "connections = cores × 2" does NOT apply here.
+      #
+      # Formula: connections ≈ (Oracle parallel query streams needed) + 1 spare
+      # For core-sdui-gateway (read-heavy, single-query per request):
+      #   - Tune up if DB CPU/wait-time analysis shows connection starvation
+      #   - Tune down if Oracle "sessions" AWR shows idle connections
+      maximum-pool-size: 20        # headroom for burst; monitor via HikariCP JMX
+      minimum-idle: 5              # keep-warm connections; avoids cold-start latency
+
+      # ── Timeouts ──────────────────────────────────────────────────────────
+      idle-timeout: 300000         # 5 min: release idle connections before Oracle
+                                   # idle-session-timeout (default 30 min)
+      max-lifetime: 1800000        # 30 min: rotate before Oracle kills idle sessions.
+                                   # Must be < Oracle SQLNET.EXPIRE_TIME or
+                                   # profiles.DEFAULT.IDLE_TIME
+      connection-timeout: 3000     # 3 s: fail fast under saturation. Pairs with
+                                   # circuit-breaker (Resilience4j) at the service layer
+      validation-timeout: 3000     # 3 s: health check must complete before timeout
+
+      # ── Oracle-specific: keepalive + validation ────────────────────────────
+      connection-test-query: SELECT 1 FROM DUAL   # Oracle-compatible ping query
+      keepalive-time: 60000        # 60 s: send keepalive to prevent firewall drops
+                                   # (AWS NLB drops idle TCP after 350 s by default)
+
+      # ── Observability: leak detection ─────────────────────────────────────
+      # Flags connections held longer than the threshold as likely leaks.
+      # In banking, a leaked connection = blocked audit writes = compliance risk.
+      # Set to 2× the 99th-percentile DB query time observed in production APM.
+      leak-detection-threshold: 10000  # 10 s
+
+      # ── JDBC Connection Properties (Oracle 23ai specific) ──────────────────
+      data-source-properties:
+        oracle.net.CONNECT_TIMEOUT: 3000     # network-level connect timeout (ms)
+        oracle.jdbc.ReadTimeout: 5000        # socket read timeout per statement (ms)
+        oracle.net.disableOob: true          # disable out-of-band breaks (reduces overhead)
+        oracle.jdbc.jsonDefaultGetObjectType: java.lang.String # Return Oracle 23ai JSON columns directly as String
+        # Statement cache: reduces parse overhead for repeated SQL patterns
+        oracle.jdbc.implicitStatementCacheSize: 50
 
   # ─────────────────────────────────────────────────────────────────────────────
   # Jackson Serialization Defaults
@@ -54,6 +87,72 @@ spring:
       write-dates-as-timestamps: false
       indent-output: false
 
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Phase 4: Redis (Lettuce) — Blueprint Caching
+  # Lettuce is the default Spring Boot Redis client (non-blocking, Netty-based).
+  # Virtual threads + Lettuce = low-latency cache reads without thread pinning.
+  # ─────────────────────────────────────────────────────────────────────────────
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 16
+          max-idle: 8
+          min-idle: 4
+          max-wait: 1000ms
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Phase 4: Cache Manager — Named Caches
+  # ─────────────────────────────────────────────────────────────────────────────
+  cache:
+    type: redis
+    redis:
+      time-to-live: 1800000        # 30 minutes default TTL (ms)
+      cache-null-values: false
+      key-prefix: "sdui:"
+      use-key-prefix: true
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Phase 4: Kafka — Async Audit Logging
+  # Producer publishes ActivityLogEvent to 'audit-log-topic'.
+  # Consumer group reads and persists to Oracle ACTIVITY_LOG table.
+  # ─────────────────────────────────────────────────────────────────────────────
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all                      # Durability: wait for all ISR replicas
+      retries: 3
+      properties:
+        enable.idempotence: true     # Exactly-once producer semantics
+        max.in.flight.requests.per.connection: 5
+    consumer:
+      group-id: sdui-audit-consumer
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "com.sdui.forge.audit"
+        spring.json.value.default.type: "com.sdui.forge.audit.ActivityLogEvent"
+    listener:
+      concurrency: 3                 # 3 concurrent consumer threads
+      ack-mode: record               # Commit after each record for reliability
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase 4: JWT Configuration
+# Secret MUST be overridden in production via SDUI_JWT_SECRET env var.
+# ─────────────────────────────────────────────────────────────────────────────
+sdui:
+  jwt:
+    secret: ${SDUI_JWT_SECRET:c2R1aS1mb3JnZS1kZWZhdWx0LWp3dC1zZWNyZXQta2V5LW11c3QtYmUtMjU2LWJpdHMtb3ItbG9uZ2Vy}
+    expiration-ms: ${SDUI_JWT_EXPIRY:86400000}   # 24 hours
+    issuer: core-sdui-gateway
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Actuator: expose health + info for container orchestration probes
 # ─────────────────────────────────────────────────────────────────────────────
@@ -61,7 +160,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics
+        include: health,info,metrics,caches
   endpoint:
     health:
       show-details: when-authorized
@@ -73,5 +172,11 @@ logging:
   level:
     root: INFO
     com.sdui.forge: DEBUG
+    com.sdui.forge.security: DEBUG
+    com.sdui.forge.audit: DEBUG
     org.springframework.data.jdbc: DEBUG
+    org.springframework.cache: DEBUG
+    org.springframework.kafka: INFO
+    org.springframework.security: INFO
     com.zaxxer.hikari: INFO
+

@@ -24,9 +24,14 @@ import UnknownComponent from "@/components/skeletons/UnknownComponent";
  * sends in PAGE_TEMPLATE.PAGE_UI_BLUEPRINT.
  */
 const REGISTRY = {
-  Skeleton_Card: SkeletonCard,
-  Skeleton_Form: SkeletonForm,
-  Skeleton_Grid: SkeletonGrid,
+  Skeleton_Card:         SkeletonCard,
+  SkeletonCard:          SkeletonCard,
+  ACCOUNT_SUMMARY_CARD:  SkeletonCard,
+  Skeleton_Form:         SkeletonForm,
+  SkeletonForm:          SkeletonForm,
+  ACCOUNT_LOOKUP_FORM:   SkeletonForm,
+  Skeleton_Grid:         SkeletonGrid,
+  SkeletonGrid:          SkeletonGrid,
 };
 
 /**

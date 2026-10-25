@@ -1,312 +1,339 @@
-# Core SDUI Gateway (`core-sdui-gateway`)
+# SDUI Forge (core-sdui-gateway)
 
-[![Java 21](https://img.shields.io/badge/Java-21%20Loom-orange?logo=openjdk)](https://openjdk.org/projects/loom/)
-[![Spring Boot 3.4](https://img.shields.io/badge/Spring%20Boot-3.4-brightgreen?logo=springboot)](https://spring.io/projects/spring-boot)
-[![Spring Data JDBC](https://img.shields.io/badge/Spring%20Data-JDBC-blue)](https://spring.io/projects/spring-data-jdbc)
-[![Oracle 23ai](https://img.shields.io/badge/Database-Oracle%2023ai-red?logo=oracle)](https://www.oracle.com/database/23ai/)
-[![Next.js 14](https://img.shields.io/badge/Next.js-14%20App%20Router-black?logo=nextdotjs)](https://nextjs.org/)
-[![React 18](https://img.shields.io/badge/React-18-blue?logo=react)](https://react.dev/)
-[![Zustand](https://img.shields.io/badge/State-Zustand-brown)](https://github.com/pmndrs/zustand)
-[![React Hook Form](https://img.shields.io/badge/Forms-React%20Hook%20Form-ec5990)](https://react-hook-form.com/)
+An enterprise-grade **Server-Driven UI (SDUI) Metadata Engine** engineered for core banking environments. The backend delivers declarative JSON UI blueprints; the frontend dynamically mounts React components at runtime—eliminating hardcoded client routing and decoupling frontend releases from banking product rollouts.
 
-> **An enterprise Server-Driven UI (SDUI) Metadata Engine & Gateway designed for mission-critical core banking platforms.**  
-> Decouples core banking business workflows and UI layouts from client deployment cycles. The backend serves declarative JSON blueprints and action definitions; the frontend dynamically validates, resolves, and mounts accessible, reactive UI widgets on-the-fly.
+> **Status:** **Phase 5: Testing, Optimization, and Go-Live Preparation** — ✅ Complete  
+> All phases (Core Database Architecture, Frontend Dynamic Engine, Interactivity, Security/Kafka/Redis, Integration Testing & Automated Infrastructure) are production-ready.
 
 ---
 
-## Table of Contents
+## Architecture Overview
 
-- [Overview & Architecture](#overview--architecture)
-- [System Architecture Diagram](#system-architecture-diagram)
-- [Project Phases & Status](#project-phases--status)
-- [Phase 3 Interactive Flow](#phase-3-interactive-flow)
-- [Repository Layout](#repository-layout)
-- [Backend Specification (Phase 1)](#backend-specification-phase-1)
-- [Frontend Specification (Phase 2 & 3)](#frontend-specification-phase-2--3)
-- [Quick Start Guide](#quick-start-guide)
-  - [Prerequisites](#prerequisites)
-  - [Running Backend](#running-backend)
-  - [Running Frontend](#running-frontend)
-- [Extending Widgets & Actions](#extending-widgets--actions)
-- [Defensive Programming & Safety](#defensive-programming--safety)
-- [Phase Deliverables Reference](#phase-deliverables-reference)
-
----
-
-## Overview & Architecture
-
-In high-compliance core banking environments, pushing mobile or web releases through change boards and app stores creates friction and latency for product teams. **Core SDUI Gateway** solves this by shifting layout composition, validation rules, and business action choreography to a centralized backend metadata engine.
-
-### Key Capabilities
-- **Zero-Deploy UI Updates**: Introduce forms, change layouts, reorder fields, or alter validation rules dynamically via JSON blueprints.
-- **High Concurrency & Low Latency**: Powered by Java 21 Project Loom (Virtual Threads) and lightweight Spring Data JDBC (zero Hibernate N+1 or session-cache risks).
-- **Oracle 23ai JSON Support**: Direct persistence of flexible UI widget metadata in native JSON columns.
-- **Dynamic Interactivity**: Frontend driven by a central **Zustand** store, **React Hook Form** with schema-less dynamic validation rules, and an asynchronous **Action Dispatcher**.
-- **Defensive Resilience**: Resilient JavaScript engine with automated fallback rendering (`UnknownComponent`) and error boundaries to prevent runtime crashes.
-
----
-
-## System Architecture Diagram
-
-```mermaid
-graph TD
-    Client["Browser / Next.js Client"]
-    SSR["Next.js Server (App Router)"]
-    Gateway["Core SDUI Gateway (Spring Boot 3.4)"]
-    Oracle[("Oracle 23ai Database")]
-    CoreAPI["Downstream Core Banking APIs"]
-
-    Client -->|1. Route /dynamic-page/:id| SSR
-    SSR -->|2. Fetch Page Blueprint| Gateway
-    Gateway -->|3. Query Metadata| Oracle
-    Oracle -->|4. Return Blueprint JSON| Gateway
-    Gateway -->|5. Return Page Blueprint| SSR
-    SSR -->|6. Hydrate SduiRenderer| Client
-    Client -->|7. Submit Form / Trigger Action| Client
-    Client -->|8. actionDispatcher -> POST /api/v1/...| CoreAPI
-    CoreAPI -->|9. Response Data| Client
-    Client -->|10. Dispatch to Zustand widgetData| Client
-    Client -->|11. Reactive Re-render| Client
+```
+                      ┌────────────────────────────────────────┐
+                      │    Next.js 14 Frontend (App Router)    │
+                      │  SduiRenderer + WidgetErrorBoundary    │
+                      └──────────────────┬─────────────────────┘
+                                         │  HTTPS + Bearer JWT
+                                         ▼
+                      ┌────────────────────────────────────────┐
+                      │       core-sdui-gateway (Spring Boot)  │
+                      │       Java 21 (Virtual Threads Loom)   │
+                      │   PageMetadataController / Service     │
+                      └───────┬────────────────────┬───────────┘
+                              │                    │
+              Cache Miss / DB │                    │ Async Audit Log
+                              ▼                    ▼
+               ┌───────────────────────┐  ┌───────────────────────┐
+               │     Oracle 23ai       │  │     Apache Kafka      │
+               │ (Native OSON / CLOB)  │  │ (Per-user partitioned)│
+               └───────────▲───────────┘  └───────────┬───────────┘
+                           │                          │
+                    Cache  │                          │ Background Consumer
+                    Hit    │                          ▼
+               ┌───────────┴───────────┐  ┌───────────────────────┐
+               │        Redis 7        │  │     Audit Consumer    │
+               │  (Lettuce, TTL 30m)   │  │ (Idempotent CLOB save)│
+               └───────────────────────┘  └───────────────────────┘
 ```
 
 ---
 
-## Project Phases & Status
+## Project Status & Milestones
 
-| Phase | Description | Key Tech Stack | Status |
-|:---:|---|---|:---:|
-| **Phase 1** | **Database Schema & Core Backend Gateway**<br>Direct SQL execution, schema DDL, Oracle 23ai JSON columns, Loom Virtual Threads, REST blueprint endpoints. | Java 21, Spring Boot 3.4, Spring Data JDBC, Oracle 23ai, HikariCP | ✅ Complete |
-| **Phase 2** | **Frontend Skeleton & Recursive SDUI Engine**<br>Next.js 14 App Router, recursive `SduiRenderer`, dynamic `componentRegistry`, responsive layout engine. | Next.js 14, React 18, Tailwind CSS, JavaScript ES6+ | ✅ Complete |
-| **Phase 3** | **Dynamic Actions, Form Validation & Data Binding**<br>Zustand triple-domain store, React Hook Form dynamic blueprint rules, central action dispatcher, data-bound `SkeletonGrid`. | Zustand, React Hook Form, Custom Dispatcher | ✅ Complete |
-| **Phase 4** | **RBAC, Auth Context & Menu Ingestion**<br>Role-gated widget rendering, token propagation, global navigation tree. | NextAuth / JWT, Spring Security 6 | ⏳ Planned |
-| **Phase 5** | **Expanded Enterprise Widget Library**<br>Dynamic Charts, Multi-tab layouts, Stepper workflows, Modals, Node-level Error Boundaries. | Recharts, Headless UI | ⏳ Planned |
+| Phase | Scope | Status | Key Deliverables |
+|:---|:---|:---:|:---|
+| **Phase 1** | Core DB & Backend Foundation | ✅ Complete | Spring Boot 3.4, Spring Data JDBC, Oracle 23ai schema, OSON converters |
+| **Phase 2** | Frontend Engine & Dynamic Renderer | ✅ Complete | Next.js 14 App Router, `SduiRenderer`, Component Registry, Skeletons |
+| **Phase 3** | Interactivity & Form Engine | ✅ Complete | Dynamic event bindings, React Hook Form, server-driven validators |
+| **Phase 4** | Enterprise Security, Caching & Auditing| ✅ Complete | Stateless JJWT auth, Redis 7 cache, Kafka 3.7 non-blocking audit producer/consumer |
+| **Phase 5** | Testing, Optimization & Go-Live Prep | ✅ Complete | Testcontainers integration suite, React Error Boundaries, HikariCP & ZGC tuning, Docker Compose automation |
 
 ---
 
-## Phase 3 Interactive Flow
+## Repository Structure
 
-The end-to-end interactivity pipeline coordinates the form submission, rule verification, async action dispatch, store mutation, and reactive grid binding:
-
-```mermaid
-sequenceDiagram
-    autonumber
-    actor User
-    participant Form as SkeletonForm (RHF)
-    participant Store as Zustand Store (useSduiStore)
-    participant Dispatcher as actionDispatcher
-    participant API as Core Banking API / Next.js Route
-    participant Grid as SkeletonGrid
-
-    User->>Form: Enters input & clicks Submit
-    Form->>Form: Runs React Hook Form validation against blueprint rules
-    alt Validation Fails
-        Form-->>User: Displays contextual inline error messages
-    else Validation Passes
-        Form->>Store: setFormData(formId, data)
-        Form->>Dispatcher: executeDynamicAction(actionId, data)
-        Dispatcher->>Store: setActionState(actionId, {loading: true, error: null})
-        Dispatcher->>Dispatcher: resolveActionMetadata(actionId)
-        Dispatcher->>API: HTTP Request (POST /api/v1/core/accounts/search)
-        API-->>Dispatcher: JSON Response Data (Account transactions)
-        Dispatcher->>Store: setWidgetData(targetWidget, responseData)
-        Dispatcher->>Store: setActionState(actionId, {loading: false, error: null})
-        Store-->>Grid: Reactive update on widgetData[id]
-        Grid-->>User: Renders dynamic rows with auto-detected columns
-    end
 ```
-
----
-
-## Repository Layout
-
-```text
 core-sdui-gateway/
-├── pom.xml                                   # Spring Boot 3.4 Maven configuration (Java 21)
-├── src/                                      # Backend implementation (Phase 1)
-│   ├── main/
-│   │   ├── java/com/sdui/forge/
-│   │   │   ├── SduiForgeApplication.java     # Spring Boot application entry point
-│   │   │   ├── config/                       # Data JDBC, HikariCP, Virtual Threads config
-│   │   │   ├── controller/                   # REST endpoints (/pages/{id}/blueprint, /actions)
-│   │   │   ├── model/                        # Domain entities & blueprint records
-│   │   │   ├── repository/                   # Spring Data JDBC repositories
-│   │   │   └── service/                      # Metadata & blueprint aggregation service
-│   │   └── resources/
-│   │       ├── application.yml               # Virtual threads, datasource, HikariCP settings
-│   │       └── schema-oracle.sql             # Oracle 23ai DDL with JSON column definitions
-│   └── test/                                 # Unit & integration tests
-├── phase1_deliverables.md                    # Detailed Phase 1 architecture & DDL documentation
-├── phase2_deliverables.md                    # Detailed Phase 2 frontend engine documentation
-├── phase3_deliverables.md                    # Detailed Phase 3 state & interactivity documentation
-├── README.md                                 # Master repository documentation
-└── frontend/                                 # Next.js 14 App Router application (Phase 2 & 3)
-    ├── app/
-    │   ├── layout.jsx                        # Root HTML shell & global font styles
-    │   ├── globals.css                       # Tailwind CSS directives & theme rules
-    │   ├── dynamic-page/[pageId]/page.jsx    # Dynamic Server Component page route
-    │   └── api/v1/core/accounts/search/      # Mock core banking API route handler
-    │       └── route.js
-    ├── components/
-    │   ├── SduiRenderer.jsx                  # Recursive JSON tree renderer & layout mapper
-    │   └── skeletons/
-    │       ├── SkeletonCard.jsx              # Content card widget
-    │       ├── SkeletonForm.jsx              # React Hook Form widget with dynamic rule parsing
-    │       ├── SkeletonGrid.jsx              # Data-bound reactive table widget
-    │       └── UnknownComponent.jsx          # Defensive fallback component
-    ├── store/
-    │   └── useSduiStore.js                   # Zustand store (formData, widgetData, actionStates)
-    ├── utils/
-    │   ├── actionDispatcher.js               # Dynamic action execution & store update engine
-    │   └── componentRegistry.js              # Type-to-Component registry
-    ├── lib/
-    │   └── mockBlueprint.js                  # In-memory blueprint mock & payload adapter
-    ├── jsconfig.json                         # Absolute path aliases (@/*)
-    ├── next.config.mjs                       # Next.js configuration
-    ├── tailwind.config.js                    # Tailwind styling tokens
-    └── package.json                          # Frontend dependencies (Zustand, React Hook Form)
+├── docker-compose.yml                       # Unified multi-service infrastructure (Oracle 23ai, Redis 7, Kafka KRaft)
+├── core-sdui-gateway.sql                    # Canonical Oracle 23ai DDL schema definition
+├── oracle-init/                             # Automated database provisioning container entrypoint
+│   └── 01_setup.sql                         # PDB switch, user provisioning, DDL, and baseline seed data
+├── pom.xml                                  # Spring Boot 3.4.1, Java 21, Testcontainers BOM
+├── src/main/java/com/sdui/forge/
+│   ├── SduiForgeApplication.java           # Spring Boot bootstrap
+│   ├── audit/                              # Kafka asynchronous audit logging pipeline
+│   │   ├── ActivityLogEvent.java           # Immutable event record (UUID, user, CLOB payload)
+│   │   ├── AuditLogProducer.java           # Non-blocking per-user partitioned publisher
+│   │   └── AuditLogConsumer.java           # Idempotent consumer with MANUAL_IMMEDIATE ack
+│   ├── config/                             # Infrastructure configurations
+│   │   ├── JdbcConfig.java                 # Oracle JSON (OSON) ↔ String converters
+│   │   ├── RedisCacheConfig.java           # Lettuce cache manager, key prefixes, TTLs
+│   │   └── KafkaConsumerConfig.java        # Dedicated ErrorHandlingDeserializer & DLT
+│   ├── controller/                         # REST API endpoints
+│   │   └── PageMetadataController.java     # /api/v1/pages/{id}/blueprint, /api/v1/menus
+│   ├── domain/                             # Spring Data JDBC entities (Records)
+│   │   ├── ServiceDetails.java
+│   │   ├── PageTemplate.java
+│   │   ├── PageAction.java
+│   │   └── ActivityLog.java
+│   ├── dto/                                # Strong-typed API transfer records
+│   ├── exception/                          # GlobalExceptionHandler & banking error mappings
+│   ├── repository/                         # Spring Data JDBC repositories
+│   │   ├── ServiceDetailsRepository.java
+│   │   ├── PageTemplateRepository.java
+│   │   ├── PageActionRepository.java
+│   │   └── ActivityLogRepository.java
+│   ├── security/                           # Stateless security layer
+│   │   ├── SecurityConfig.java             # Method security, CORS, filter chain
+│   │   ├── JwtAuthenticationFilter.java    # Bearer token interceptor
+│   │   ├── JwtAuthenticationEntryPoint.java# RFC 7807 compliant 401 error handler
+│   │   └── JwtTokenProvider.java           # HMAC-SHA256 JJWT generator and validator
+│   └── service/
+│       └── PageMetadataService.java        # Blueprint retrieval, caching & JSON parsing
+├── src/main/resources/
+│   ├── application.yml                     # Virtual Threads, HikariCP, Redis, Kafka, JWT config
+│   ├── schema.sql                          # Spring Boot SQL initialization DDL
+│   ├── data.sql                            # Spring Boot SQL initialization seed data
+│   └── db/migration/
+│       ├── V1__core_schema.sql             # Flyway migration: core tables
+│       └── V2__activity_log.sql            # Flyway migration: audit table
+├── src/test/java/com/sdui/forge/
+│   └── controller/
+│       └── PageMetadataControllerIntegrationTest.java # Testcontainers Oracle 23ai + Redis 7 suite
+├── frontend/                               # Next.js 14 SDUI engine
+│   ├── app/
+│   │   ├── layout.jsx                      # App root layout with navigation bar
+│   │   ├── page.jsx                        # Root landing redirect to /dynamic-page/101
+│   │   ├── globals.css
+│   │   └── dynamic-page/[pageId]/page.jsx  # Server Component blueprint loader + PageErrorBoundary
+│   ├── components/
+│   │   ├── ErrorBoundary.jsx               # Widget-level & Page-level Error Boundaries
+│   │   ├── SduiRenderer.jsx                # Recursive component tree renderer with WidgetErrorBoundary
+│   │   └── skeletons/                      # Banking UI widgets
+│   │       ├── SkeletonCard.jsx
+│   │       ├── SkeletonForm.jsx
+│   │       ├── SkeletonGrid.jsx
+│   │       └── UnknownComponent.jsx        # Fallback for unmapped widgets
+│   ├── lib/mockBlueprint.js                # Blueprint mocks & adapters (Pages #1, #101, #999)
+│   ├── utils/componentRegistry.js          # Dynamic component resolver with alias support
+│   ├── package.json
+│   ├── next.config.mjs
+│   ├── postcss.config.mjs
+│   └── tailwind.config.js
+├── graphify-out/                           # AST and Semantic Architecture Knowledge Graph
+├── phase1_deliverables.md                  # Phase 1 DDL, REST APIs, JSON data contracts
+├── phase2_deliverables.md                  # Phase 2 Next.js dynamic engine specs
+├── phase4_deliverables.md                  # Phase 4 Security, Caching, and Kafka audit details
+├── phase5_deliverables.md                  # Phase 5 Testcontainers, ErrorBoundary, JVM, JMeter
+└── README.md
 ```
 
 ---
 
-## Backend Specification (Phase 1)
+## Technical Specifications & Constraints
 
-### Technical Stack
-- **Runtime:** Java 21 LTS with **Project Loom** (`spring.threads.virtual.enabled=true`).
-- **Framework:** Spring Boot 3.4.x.
-- **Persistence:** Spring Data JDBC (direct SQL execution; strict avoidance of Hibernate session overhead and N+1 query patterns).
-- **Database:** Oracle 23ai featuring native `JSON` column support.
-- **Connection Pool:** HikariCP tuned for virtual-thread non-blocking I/O.
-
-### Endpoints
-- `GET /sdui-forge/api/v1/pages/{pageId}/blueprint` — Fetches assembled layout, widgets, and dynamic properties for a given page.
-- `GET /sdui-forge/api/v1/actions/{actionId}` — Fetches action definition (HTTP method, target endpoint, target widget ID).
+| Layer | Technology | Key Architectural Details |
+|:---|:---|:---|
+| **Runtime & Concurrency** | Java 21 (OpenJDK / Temurin) | **Project Loom Virtual Threads** enabled (`spring.threads.virtual.enabled=true`) |
+| **Backend Framework** | Spring Boot 3.4.1 | Stateless REST gateway, MVC on virtual threads |
+| **Data Persistence** | Spring Data JDBC | Explicit queries without Hibernate overhead; direct OSON binding |
+| **Database** | Oracle 23ai | Native JSON columns (`CHECK (PAGE_UI_BLUEPRINT IS JSON)`), CLOB audit payloads |
+| **Distributed Cache** | Redis 7 (Lettuce) | Multi-tier caching (`sdui::pageBlueprint`, 30m TTL; `sdui::menuTree`, 60m TTL) |
+| **Asynchronous Bus** | Apache Kafka 3.7+ (KRaft) | Audit trail decoupling; non-blocking sends, ordered per `userId` partition |
+| **Security & Auth** | Spring Security + JJWT 0.12 | Stateless Bearer token validation, HMAC-SHA256 signing, RBAC (`MAKER`, `CHECKER`) |
+| **Frontend Runtime** | Next.js 14 (App Router) | React 18 Server Components + Client Boundaries, Pure JavaScript (No TS) |
+| **Resilience & Testing** | JUnit 5 + Testcontainers | Real Oracle 23ai and Redis 7 containerized verification |
 
 ---
 
-## Frontend Specification (Phase 2 & 3)
+## Database Architecture (`core-sdui-gateway.sql`)
 
-### Technical Stack
-- **Framework:** Next.js 14 (App Router).
-- **View Layer:** React 18 (Server & Client Components).
-- **Language:** JavaScript (ES6+ / JSX) — strictly avoiding TypeScript overhead while enforcing rigorous runtime assertions.
-- **State Management:** **Zustand** store (`useSduiStore.js`) managing:
-  - `formData`: Isolated per-form key-value state.
-  - `widgetData`: Dynamic response datasets mapped to target widget IDs.
-  - `actionStates`: Operation status (`loading`, `error`, `success`) keyed by `actionId`.
-- **Form Engine:** **React Hook Form** dynamically mapping blueprint validation schemas:
-  - `required`, `minLength`, `maxLength`, `pattern`, `min`, `max`, and custom `patternMessage`.
-- **Styling:** Tailwind CSS 3.4 with responsive stack and grid wrappers.
+The database architecture is defined in [`core-sdui-gateway.sql`](file:///f:/Research/core-sdui-gateway/core-sdui-gateway.sql) and implemented in [`oracle-init/01_setup.sql`](file:///f:/Research/core-sdui-gateway/oracle-init/01_setup.sql).
+
+### Core Tables
+
+1. **`USERS`:** Authentication records, password hashes (BCrypt), session tokens, and active flags.
+2. **`SERVICE`:** Root service catalog (e.g., Retail Core Banking, Corporate & Treasury).
+3. **`SERVICE_DETAILS`:** Hierarchical navigation menu tree with self-referencing foreign keys (`SVRD_PARENT_MENU_ID`), assigned roles (`SVRD_ALLOWED_ROLES`), and foreign key linkage to `PAGE_TEMPLATE`.
+4. **`PAGE_TEMPLATE`:** Server-driven UI definitions. Stores layout type and the full JSON component tree (`PAGE_UI_BLUEPRINT`) in Oracle 23ai native JSON format.
+5. **`PAGE_ACTION`:** Interactive events and API bindings linked to menu nodes (Search API, Fund Transfer Submit, Approval).
+6. **`BUSINESS_LOGIC_CONFIG`:** Extension point mapping actions to backend handler identifiers and execution parameters.
+7. **`LOGIN_LOG`:** Session and client audit tracking (IP address, user agent, status).
+8. **`ACTIVITY_LOG`:** Asynchronous transaction audit trail populated via Kafka; stores full request/response payloads in `CLOB` with indexed business reference keys (`ALOG_REFERENCE_KEY`).
+
+---
+
+## Infrastructure: Docker Compose (`docker-compose.yml`)
+
+The repository includes a production-mirror [`docker-compose.yml`](file:///f:/Research/core-sdui-gateway/docker-compose.yml) defining all core infrastructure components with container healthchecks, persistent volumes, and zero ZooKeeper dependencies:
+
+| Service | Container Name | Image | Port | Description & Config |
+|:---|:---|:---|:---:|:---|
+| `oracle23ai` | `sdui-oracle` | `container-registry.oracle.com/database/free:latest` | `1521` | Oracle 23ai Free Database (PDB: `FREEPDB1`). Auto-initializes schema via `./oracle-init:/container-entrypoint-initdb.d`. |
+| `redis` | `sdui-redis` | `redis:7-alpine` | `6379` | Redis L2 Distributed Cache with AOF persistence (`--appendonly yes`). |
+| `kafka` | `sdui-kafka` | `bitnami/kafka:latest` | `9092` | Apache Kafka in KRaft mode (controller + broker combined, no ZooKeeper). |
+
+### Automated Container Initialization:
+* **Oracle 23ai:** The container mounts `./oracle-init:/container-entrypoint-initdb.d`. Upon initial startup, it switches to `FREEPDB1`, provisions the `sdui_admin` user (`sdui_secret`), executes the full DDL, and inserts baseline seed data.
+* **Healthchecks:**
+  * **Oracle:** Evaluates `healthcheck.sh` (30s interval, 10s timeout, 5 retries).
+  * **Redis:** Evaluates `redis-cli ping` (10s interval, 5s timeout, 3 retries).
+  * **Kafka:** Evaluates `kafka-topics.sh --list --bootstrap-server localhost:9092` (15s interval, 10s timeout, 5 retries).
 
 ---
 
 ## Quick Start Guide
 
-### Prerequisites
-- **JDK 21** (e.g., Eclipse Temurin 21 or Oracle GraalVM 21).
-- **Maven 3.9+**.
-- **Node.js 18.18+** or **Node.js 20+** and **npm 9+**.
+### 1. Start Infrastructure via Docker Compose
 
-### Running Backend
+Spin up Oracle 23ai, Redis 7, and Kafka KRaft in the background:
 
 ```bash
-# From repository root
-mvn clean spring-boot:run
+# Start all infrastructure containers
+docker compose up -d
+
+# Verify container status and healthcheck results
+docker compose ps
 ```
 
-The Spring Boot backend will initialize on port `8080` with Virtual Threads enabled.
+*Expected status:*
+```
+NAME          IMAGE                                               COMMAND                  SERVICE      STATUS
+sdui-kafka    bitnami/kafka:latest                                "/opt/bitnami/script…"   kafka        running (healthy)
+sdui-oracle   container-registry.oracle.com/database/free:latest   "/bin/bash -c $ORACL…"   oracle23ai   running (healthy)
+sdui-redis    redis:7-alpine                                      "docker-entrypoint.s…"   redis        running (healthy)
+```
 
-### Running Frontend
+To view logs or tear down the stack:
+```bash
+# View aggregated service logs
+docker compose logs -f
+
+# Stop containers (preserves volume data)
+docker compose down
+
+# Stop containers and purge volumes (fresh restart)
+docker compose down -v
+```
+
+### 2. Backend Gateway Launch
+
+Ensure your environment connects to the initialized Oracle database (`sdui_admin` / `sdui_secret`):
 
 ```bash
-# Navigate to frontend directory
-cd frontend
+# Build and verify test suite compilation
+mvn clean test-compile
 
-# Install dependencies (Zustand, React Hook Form, Next.js, React, Tailwind)
+# Start the Spring Boot Gateway (runs with Virtual Threads on port 8080)
+mvn spring-boot:run
+# Gateway is accessible at http://localhost:8080/sdui-forge
+```
+
+*Default Configuration (from `application.yml`):*
+```yaml
+spring:
+  datasource:
+    url: jdbc:oracle:thin:@//localhost:1521/FREEPDB1
+    username: sdui_admin
+    password: sdui_secret
+  data:
+    redis:
+      host: localhost
+      port: 6379
+  kafka:
+    bootstrap-servers: localhost:9092
+```
+
+### 3. Frontend Dynamic Renderer Launch
+
+```bash
+cd frontend
 npm install
-
-# Start local Next.js development server
 npm run dev
+# Portal accessible at http://localhost:3000 (auto-redirects to /dynamic-page/101)
 ```
 
-Visit the interactive pages in your browser:
-- **Interactive Banking Form & Data-Bound Grid:**  
-  [http://localhost:3000/dynamic-page/101](http://localhost:3000/dynamic-page/101)  
-  *Try entering an invalid account number (e.g. fewer than 10 digits or letters) to see the dynamic blueprint validation in action, or enter `1234567890` and submit to see the Action Dispatcher query the mock API and reactively populate the `SkeletonGrid`.*
-- **Fallback Resilience Demo:**  
-  [http://localhost:3000/dynamic-page/999](http://localhost:3000/dynamic-page/999)  
-  *Demonstrates how unregistered widget types safely render `UnknownComponent` fallback cards without interrupting overall page execution.*
+Direct URLs available out-of-the-box:
+* **Primary Dashboard:** `http://localhost:3000/dynamic-page/101`
+* **Account Overview:** `http://localhost:3000/dynamic-page/1`
+* **Error Boundary Fallback Demo:** `http://localhost:3000/dynamic-page/999`
 
-### Production Build
+---
+
+## Phase 5 Highlights: Production Readiness & Quality Assurance
+
+### 1. Testcontainers Integration Suite
+The test harness ([`PageMetadataControllerIntegrationTest.java`](file:///f:/Research/core-sdui-gateway/src/test/java/com/sdui/forge/controller/PageMetadataControllerIntegrationTest.java)) executes full-cycle integration tests using real, containerized dependencies:
+* **Oracle 23ai Container (`gvenzl/oracle-free:23-slim-faststart`):** Verifies real SQL dialect, JSON-parsing constraints, and DDL migrations.
+* **Redis 7 Container (`redis:7-alpine`):** Validates cache misses, cache hits, key namespace creation, and TTL eviction policies.
+* **Wire Authentication:** Out-of-process `TestRestTemplate` calls pass authentic JWT tokens generated by `JwtTokenProvider`, testing real filter chain execution.
+* **Cache Integrity:** Verifies that 404 responses are rejected by Redis and never poisoned into cache.
 
 ```bash
-cd frontend
-npm run build
-npm run start
+# Execute integration test suite with active Docker daemon
+mvn test -Dtest=PageMetadataControllerIntegrationTest
 ```
 
----
+### 2. Frontend Edge-Case Safety (`ErrorBoundary.jsx`)
+In a JavaScript-based frontend, malformed backend JSON or breaking schema changes can cause fatal client errors. SDUI Forge resolves this with two-tiered isolation:
+* **`WidgetErrorBoundary`:** Wraps each node inside `SduiRenderer`. If a widget encounters a `TypeError` (missing prop) or `SyntaxError` (invalid nested JSON), it renders a localized fallback card with a "Try again" trigger without impacting surrounding cards.
+* **`PageErrorBoundary`:** Catches top-level layout collapse and presents an accessible, non-technical banking recovery screen.
+* **Enterprise Compliance:** No raw JavaScript stack traces or backend internals are ever displayed to clients. Diagnostic context is routed to centralized APM (`Sentry`, `Datadog`).
 
-## Extending Widgets & Actions
+### 3. High-Throughput Connection Pool & JVM Tuning
 
-### 1. Adding a New UI Widget
-1. Create the component under `frontend/components/skeletons/` (e.g., `SkeletonChart.jsx`).
-2. Register the component in `frontend/utils/componentRegistry.js`:
-   ```javascript
-   import SkeletonChart from "@/components/skeletons/SkeletonChart";
+#### HikariCP Tuning for Virtual Threads (`application.yml`)
+Because Virtual Threads unmount from platform carrier threads during socket I/O, the connection pool does not need to scale with thread count:
+* `maximum-pool-size: 20` (prevents overwhelming the Oracle Server Process limit)
+* `connection-timeout: 3000` (fail-fast within 3 seconds)
+* `keepalive-time: 60000` (1-minute heartbeat to maintain firewall states)
+* `oracle.jdbc.implicitStatementCacheSize: 50` (caches precompiled statement cursors)
+* `oracle.net.disableOob: true` (disables out-of-band breaks to prevent socket errors in virtualized k8s networks)
 
-   const REGISTRY = {
-     Skeleton_Card: SkeletonCard,
-     Skeleton_Form: SkeletonForm,
-     Skeleton_Grid: SkeletonGrid,
-     Skeleton_Chart: SkeletonChart, // <-- New widget registered
-   };
-   ```
-3. The backend can now immediately emit `"type": "Skeleton_Chart"` in any page blueprint without frontend redeployment.
-
-### 2. Binding Dynamic Actions
-In any button or form configuration within the blueprint:
-```json
-{
-  "submitAction": {
-    "actionId": 102,
-    "label": "Transfer Funds"
-  }
-}
+#### Production Docker `JAVA_OPTS` (Java 21 + Generational ZGC)
+```bash
+JAVA_OPTS="
+  -server
+  -XX:+UseContainerSupport
+  -XX:MaxRAMPercentage=75.0
+  -XX:InitialRAMPercentage=50.0
+  -XX:MaxMetaspaceSize=256m
+  -XX:+UseZGC
+  -XX:+ZGenerational
+  -Djdk.virtualThreadScheduler.parallelism=4
+  -Djdk.virtualThreadScheduler.maxPoolSize=256
+  -Djdk.tracePinnedThreads=short
+  -XX:+HeapDumpOnOutOfMemoryError
+  -XX:HeapDumpPath=/var/log/sdui/oom_dump.hprof
+"
 ```
-Define the action definition in the backend action repository:
-```json
-{
-  "actionId": 102,
-  "endpoint": "/api/v1/core/transfers",
-  "method": "POST",
-  "targetWidget": "transfer_summary_grid"
-}
-```
-When triggered, `actionDispatcher` will execute the request and bind the response payload directly to `widgetData["transfer_summary_grid"]`.
+
+### 4. JMeter Concurrency & Pinning Strategy
+* **Target Load:** 10,000 concurrent virtual users ramped over 10 seconds.
+* **Redis Stress:** `GET /sdui-forge/api/v1/pages/1/blueprint` (Target: p99 < 15ms, 0% errors).
+* **Kafka Audit Stress:** `GET /sdui-forge/api/v1/menus` (Target: p99 < 40ms, zero HTTP thread blockage).
+* **Pinning Diagnostics:** Monitor JVM stdout with `-Djdk.tracePinnedThreads=short` to detect synchronized blocks or native calls pinning carrier threads.
 
 ---
 
-## Defensive Programming & Safety
+## Core Operational Endpoints
 
-Because the client uses plain JavaScript without compile-time TypeScript checks, the architecture embeds comprehensive runtime defensive safeguards:
-
-1. **Component Registry Fallback:** Any unrecognized blueprint type maps to `UnknownComponent`, producing an informative warning box while allowing surrounding widgets to render unimpeded.
-2. **Defensive Normalization:** Incoming payloads are sanitized against missing or malformed fields using optional chaining (`?.`) and nullish coalescing (`??`).
-3. **Input Sanitization:** Form input types are validated against an allowlist (`text`, `number`, `email`, `password`, `tel`, `date`) before reaching the DOM.
-4. **Boundary Isolation:** Page routes employ structured error screens ensuring network or parsing failures present user-friendly error banners rather than unhandled 500 exceptions.
-
----
-
-## Phase Deliverables Reference
-
-For comprehensive deep-dives into each milestone:
-- [**Phase 1 Deliverables (Backend & Database)**](./phase1_deliverables.md) — Oracle 23ai schema, JDBC repository implementation, Spring Boot virtual threads config, and API contracts.
-- [**Phase 2 Deliverables (Frontend Engine)**](./phase2_deliverables.md) — Next.js 14 recursive rendering engine, component registry, and layout wrappers.
-- [**Phase 3 Deliverables (Interactivity & State)**](./phase3_deliverables.md) — Zustand store architecture, React Hook Form dynamic schema parsing, central action dispatcher, and reactive grid data binding.
+| Endpoint | Method | Auth | Description |
+|:---|:---:|:---:|:---|
+| `/sdui-forge/api/v1/auth/login` | `POST` | Public | Authenticates credentials with BCrypt, records login audit, issues HMAC-SHA256 JWT |
+| `/sdui-forge/api/v1/auth/token` | `POST` | Public | Utility endpoint for generating mock test JWTs with custom roles |
+| `/sdui-forge/api/v1/menus` | `GET` | Bearer JWT | Retrieves hierarchical navigation menu & dispatches async audit log |
+| `/sdui-forge/api/v1/pages/{id}/blueprint` | `GET` | Bearer JWT | Fetches cached JSON page layout, components, and action bindings |
+| `/sdui-forge/api/v1/core/accounts/search` | `POST` | Bearer JWT | Core banking account enquiry & live statement generation with Kafka audit |
+| `/sdui-forge/api/v1/core/transfers/execute` | `POST` | Bearer JWT | Core banking fund transfer execution with Kafka audit |
+| `/sdui-forge/actuator/health` | `GET` | Public | Liveness and readiness probes for Kubernetes |
 
 ---
 
-## Author & Maintainer
+## Architectural Documentation
 
-Maintained by **NasorHidar** ([@NasorHidar](https://github.com/NasorHidar)).  
-Repository: [https://github.com/NasorHidar/core-sdui-gateway.git](https://github.com/NasorHidar/core-sdui-gateway.git)
+* [`phase1_deliverables.md`](file:///f:/Research/core-sdui-gateway/phase1_deliverables.md) — Oracle schema design, Spring Data JDBC setup, and JSON blueprint data contracts.
+* [`phase2_deliverables.md`](file:///f:/Research/core-sdui-gateway/phase2_deliverables.md) — Next.js 14 dynamic rendering engine, component registry, and skeleton fallbacks.
+* [`phase4_deliverables.md`](file:///f:/Research/core-sdui-gateway/phase4_deliverables.md) — Stateless JJWT security, multi-tier Redis caching, and Kafka asynchronous audit trail.
+* [`phase5_deliverables.md`](file:///f:/Research/core-sdui-gateway/phase5_deliverables.md) — Testcontainers integration test harness, React error boundaries, HikariCP/ZGC optimization, and JMeter load testing.

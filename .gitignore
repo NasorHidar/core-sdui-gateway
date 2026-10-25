@@ -1,6 +1,11 @@
-# =========================
-# Backend: Java & Spring Boot
-# =========================
+# ==============================================================================
+# SDUI Forge (.gitignore)
+# Enterprise Server-Driven UI Gateway & Core Banking Metadata Engine
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# 1. Backend: Java 21 & Spring Boot 3
+# ------------------------------------------------------------------------------
 target/
 *.class
 *.jar
@@ -10,7 +15,89 @@ target/
 *.log
 *.swp
 
-# IDEs
+# JVM Crash & Diagnostic Dumps
+hs_err_pid*
+replay_pid*
+*.hprof
+oom_dump.hprof
+
+# Test Execution & Coverage Reports
+test-output/
+surefire-reports/
+failsafe-reports/
+jacoco.exec
+target/site/jacoco/
+
+# ------------------------------------------------------------------------------
+# 2. Frontend: Next.js 14, Node.js & Tooling
+# ------------------------------------------------------------------------------
+node_modules/
+frontend/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Next.js Build & Prerender Artifacts
+.next/
+frontend/.next/
+out/
+frontend/out/
+build/
+frontend/build/
+dist/
+frontend/dist/
+.turbo/
+frontend/.turbo/
+.npm/
+
+# TypeScript / Linter / Bundle Artifacts
+*.tsbuildinfo
+next-env.d.ts
+
+# Frontend Environment Variables (Never commit secrets)
+.env*.local
+.env.development.local
+.env.test.local
+.env.production.local
+frontend/.env*.local
+frontend/.env.development.local
+frontend/.env.test.local
+frontend/.env.production.local
+
+# Vercel / Cloud Deployment
+.vercel/
+
+# ------------------------------------------------------------------------------
+# 3. Security, Secrets & Environment Overrides
+# ------------------------------------------------------------------------------
+application-secret.yml
+application-dev.yml
+*.env
+*.pem
+*.key
+*.p12
+*.jks
+
+# ------------------------------------------------------------------------------
+# 4. Local Postman & API Client Workspaces (Redundant & User-Specific)
+# ------------------------------------------------------------------------------
+.postman/
+postman/
+.insomnia/
+.bruno/
+
+# ------------------------------------------------------------------------------
+# 5. Local AI, Graph & Analysis Tool Caches (Ephemeral & Generated)
+# ------------------------------------------------------------------------------
+graphify-out/
+.agents/
+.aider*
+.puku/
+
+# ------------------------------------------------------------------------------
+# 6. IDEs & Code Editors
+# ------------------------------------------------------------------------------
 .idea/
 *.iml
 *.iws
@@ -18,45 +105,33 @@ target/
 .project
 .settings/
 .vscode/
+*.sublime-project
+*.sublime-workspace
+.cursor/
+.windsurf/
 
-# Application Secrets (Never commit credentials)
-application-secret.yml
-application-dev.yml
-*.env
+# ------------------------------------------------------------------------------
+# 7. Database, Docker & Performance Caches
+# ------------------------------------------------------------------------------
+# Redis runtime dumps (if executed locally outside container)
+dump.rdb
+appendonly.aof
 
-# =========================
-# Frontend: Next.js & Node
-# =========================
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
+# JMeter Performance Test Output
+*.jtl
+jmeter.log
 
-# Next.js Build Output
-.next/
-out/
-build/
-
-# Frontend Environment Variables
-.env*.local
-.env.development.local
-.env.test.local
-.env.production.local
-
-# Vercel / Deployment
-.vercel/
-
-# =========================
-# Local tool state (Puku Editor plans, cache, etc.)
-.puku/
-
-# OS & System Files
-# =========================
+# ------------------------------------------------------------------------------
+# 8. Operating System & Filesystem Artifacts
+# ------------------------------------------------------------------------------
 .DS_Store
 .DS_Store?
 ._*
 .Spotlight-V100
 .Trashes
 ehthumbs.db
+ehthumbs_vista.db
 Thumbs.db
+Desktop.ini
+*.lnk
+*~
