@@ -18,9 +18,12 @@ import SkeletonCard from "@/components/skeletons/SkeletonCard";
 import SkeletonForm from "@/components/skeletons/SkeletonForm";
 import SkeletonGrid from "@/components/skeletons/SkeletonGrid";
 import UnknownComponent from "@/components/skeletons/UnknownComponent";
+import DisplayCard from "@/components/widgets/DisplayCard";
+import InputGroup from "@/components/widgets/InputGroup";
+import ActionButton from "@/components/widgets/ActionButton";
 
 /**
- * The registry itself. Keys MUST match the `type` strings the backend
+ * The registry itself. Keys MUST match the `type` or `widgetType` strings the backend
  * sends in PAGE_TEMPLATE.PAGE_UI_BLUEPRINT.
  */
 const REGISTRY = {
@@ -32,6 +35,17 @@ const REGISTRY = {
   ACCOUNT_LOOKUP_FORM:   SkeletonForm,
   Skeleton_Grid:         SkeletonGrid,
   SkeletonGrid:          SkeletonGrid,
+
+  // 100% Dynamic JSON UI Widgets
+  Display_Card:          DisplayCard,
+  DisplayCard:           DisplayCard,
+  DISPLAY_CARD:          DisplayCard,
+  Input_Group:           InputGroup,
+  InputGroup:            InputGroup,
+  INPUT_GROUP:           InputGroup,
+  Action_Button:         ActionButton,
+  ActionButton:          ActionButton,
+  ACTION_BUTTON:         ActionButton,
 };
 
 /**
@@ -42,8 +56,16 @@ const REGISTRY = {
  * @returns {React.ComponentType} A renderable component.
  */
 export function resolve(type) {
-  if (typeof type !== "string" || type.length === 0) return UnknownComponent;
-  return REGISTRY[type] || UnknownComponent;
+  if (typeof type !== "string" || type.trim().length === 0) return UnknownComponent;
+  const clean = type.trim();
+  if (REGISTRY[clean]) return REGISTRY[clean];
+
+  // Case-insensitive fallback
+  const cleanLower = clean.toLowerCase();
+  const matchedKey = Object.keys(REGISTRY).find((k) => k.toLowerCase() === cleanLower);
+  if (matchedKey) return REGISTRY[matchedKey];
+
+  return UnknownComponent;
 }
 
 /**

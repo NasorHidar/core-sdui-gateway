@@ -1,4 +1,4 @@
-# SDUI Forge (core-sdui-gateway)
+# SDUI Forge | Core Banking Gateway (core-sdui-gateway)
 ## Comprehensive Architecture Audit & Defect Remediation Report
 
 **Audit Target:** `core-sdui-gateway` (Server-Driven UI Metadata Engine & Core Banking Gateway)  

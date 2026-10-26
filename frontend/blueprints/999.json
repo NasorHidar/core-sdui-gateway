@@ -1,0 +1,21 @@
+{
+  "pageTitle": "Fallback Demo",
+  "layoutType": "VERTICAL_STACK",
+  "components": [
+    {
+      "type": "Skeleton_Card",
+      "id": "good_card",
+      "props": {
+        "title": "This one is fine",
+        "content": "Mapped correctly."
+      }
+    },
+    {
+      "type": "Skeleton_Table",
+      "id": "missing_widget",
+      "props": {
+        "foo": "bar"
+      }
+    }
+  ]
+}

@@ -1,5 +1,6 @@
 package com.sdui.forge.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sdui.forge.audit.ActivityLogEvent;
 import com.sdui.forge.audit.AuditLogProducer;
 import jakarta.servlet.http.HttpServletRequest;
@@ -28,9 +29,11 @@ public class CoreBankingMockController {
     private static final Logger log = LoggerFactory.getLogger(CoreBankingMockController.class);
 
     private final AuditLogProducer auditLogProducer;
+    private final ObjectMapper objectMapper;
 
-    public CoreBankingMockController(AuditLogProducer auditLogProducer) {
+    public CoreBankingMockController(AuditLogProducer auditLogProducer, ObjectMapper objectMapper) {
         this.auditLogProducer = auditLogProducer;
+        this.objectMapper = objectMapper;
     }
 
     private String getUserId(Principal principal) {
@@ -48,12 +51,25 @@ public class CoreBankingMockController {
         String acctNo = String.valueOf(payload.getOrDefault("accountNo", "100293847"));
         log.info("CoreBanking: Account search for account {} by user {}", acctNo, user);
 
-        // Publish audit event
+        // Comprehensive Audit Event: targetEndpoint, executionStatus, user ID, requested payload
+        Map<String, Object> auditData = Map.of(
+                "targetEndpoint", "/api/v1/core/accounts/search",
+                "executionStatus", "SUCCESS",
+                "action", "SEARCH_QUERY",
+                "requestPayload", payload
+        );
+        String auditJson;
+        try {
+            auditJson = objectMapper.writeValueAsString(auditData);
+        } catch (Exception e) {
+            auditJson = String.valueOf(payload);
+        }
+
         auditLogProducer.publish(ActivityLogEvent.create(
                 user,
-                "ACCOUNT_SEARCH",
+                "SEARCH_QUERY",
                 acctNo,
-                "{\"accountNo\":\"" + acctNo + "\"}",
+                auditJson,
                 request.getRemoteAddr()
         ));
 
@@ -115,17 +131,32 @@ public class CoreBankingMockController {
 
         String user = getUserId(principal);
         String src = String.valueOf(payload.getOrDefault("sourceAccount", ""));
-        String dest = String.valueOf(payload.getOrDefault("destAccount", ""));
-        Object amt = payload.getOrDefault("amount", 0);
+        String dest = String.valueOf(payload.getOrDefault("destAccount", payload.getOrDefault("targetAccount", "")));
+        Object amt = payload.getOrDefault("amount", payload.getOrDefault("transferAmount", 0));
         String txnId = "TXN-" + System.currentTimeMillis();
 
         log.info("CoreBanking: Transfer {} from {} to {} by user {}", amt, src, dest, user);
 
+        // Comprehensive Audit Event: targetEndpoint, executionStatus, user ID, requested payload
+        Map<String, Object> auditData = Map.of(
+                "targetEndpoint", "/api/v1/core/transfers/execute",
+                "executionStatus", "PENDING_APPROVAL",
+                "action", "FORM_SUBMISSION",
+                "transactionId", txnId,
+                "requestPayload", payload
+        );
+        String auditJson;
+        try {
+            auditJson = objectMapper.writeValueAsString(auditData);
+        } catch (Exception e) {
+            auditJson = String.valueOf(payload);
+        }
+
         auditLogProducer.publish(ActivityLogEvent.create(
                 user,
-                "FUND_TRANSFER",
+                "FORM_SUBMISSION",
                 txnId,
-                "{\"source\":\"" + src + "\",\"dest\":\"" + dest + "\",\"amount\":" + amt + "}",
+                auditJson,
                 request.getRemoteAddr()
         ));
 
@@ -134,6 +165,52 @@ public class CoreBankingMockController {
                 "transactionId", txnId,
                 "status", "PENDING_APPROVAL",
                 "message", "Fund transfer submitted. Awaiting dual-control checker authorization."
+        ));
+    }
+
+    @PostMapping("/transfers/confirm")
+    @PreAuthorize("hasAnyRole('MAKER', 'ADMIN')")
+    public ResponseEntity<?> confirmTransfer(
+            @RequestBody Map<String, Object> payload,
+            Principal principal,
+            HttpServletRequest request) {
+
+        String user = getUserId(principal);
+        String src = String.valueOf(payload.getOrDefault("sourceAccount", ""));
+        String dest = String.valueOf(payload.getOrDefault("destAccount", payload.getOrDefault("targetAccount", "")));
+        Object amt = payload.getOrDefault("amount", payload.getOrDefault("transferAmount", 0));
+        String txnId = "CONFIRM-" + System.currentTimeMillis();
+
+        log.info("CoreBanking: Pre-settlement validation for transfer {} from {} to {} by user {}. Complete payload: {}", amt, src, dest, user, payload);
+
+        // Comprehensive Audit Event: targetEndpoint, executionStatus, user ID, requested payload
+        Map<String, Object> auditData = Map.of(
+                "targetEndpoint", "/api/v1/core/transfers/confirm",
+                "executionStatus", "PRE_CONFIRMED",
+                "action", "API_ROUTING",
+                "transactionId", txnId,
+                "requestPayload", payload
+        );
+        String auditJson;
+        try {
+            auditJson = objectMapper.writeValueAsString(auditData);
+        } catch (Exception e) {
+            auditJson = String.valueOf(payload);
+        }
+
+        auditLogProducer.publish(ActivityLogEvent.create(
+                user,
+                "API_ROUTING",
+                txnId,
+                auditJson,
+                request.getRemoteAddr()
+        ));
+
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "transactionId", txnId,
+                "status", "PRE_CONFIRMED",
+                "message", "Pre-settlement confirmation verified by Business Layer. Ledger limits and routing approved."
         ));
     }
 

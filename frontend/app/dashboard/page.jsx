@@ -4,6 +4,8 @@ import useAppStore from "@/store/useAppStore";
 import ServiceGrid from "@/components/ServiceGrid";
 import SearchPromptBox from "@/components/SearchPromptBox";
 import SduiRenderer from "@/components/SduiRenderer";
+import SduiDynamicEngine from "@/components/SduiDynamicEngine";
+import SduiFallbackError from "@/components/SduiFallbackError";
 import { PageErrorBoundary } from "@/components/ErrorBoundary";
 import { normalizeBlueprint } from "@/lib/mockBlueprint";
 
@@ -13,8 +15,9 @@ import { normalizeBlueprint } from "@/lib/mockBlueprint";
  * This single page acts as a conditional renderer based on the Zustand state:
  *
  *   State A: No main service selected  →  Render ServiceGrid
- *   State B: Sub-service selected, no search performed  →  Render SearchPromptBox
- *   State C: Search submitted, blueprint loaded  →  Render SduiRenderer
+ *   State ERROR: Blueprint delivery failure / timeout → Render SduiFallbackError
+ *   State B: Sub-service selected, no blueprint yet  →  Render SearchPromptBox
+ *   State C: Search submitted, blueprint loaded  →  Render SduiDynamicEngine / SduiRenderer
  *
  * Transitions are driven entirely by the store — no URL routing needed.
  */
@@ -25,10 +28,22 @@ export default function DashboardPage() {
   const activeSduiPageId = useAppStore((s) => s.activeSduiPageId);
   const searchContext = useAppStore((s) => s.searchContext);
   const selectSubService = useAppStore((s) => s.selectSubService);
+  const blueprintError = useAppStore((s) => s.blueprintError);
 
   // ── STATE A: No service selected → Service Grid ──────────────────────────
   if (!selectedService) {
     return <ServiceGrid />;
+  }
+
+  // ── STATE ERROR: Blueprint failure or API timeout → Predefined Fallback ──
+  if (blueprintError) {
+    return (
+      <SduiFallbackError
+        error={blueprintError}
+        pageId={activeSduiPageId || selectedSubService?.pageId || selectedSubService?.menuId}
+        pageTitle={selectedSubService?.menuName}
+      />
+    );
   }
 
   // ── STATE B: Sub-service selected, no blueprint yet → Search Prompt ──────
@@ -36,9 +51,19 @@ export default function DashboardPage() {
     return <SearchPromptBox />;
   }
 
-  // ── STATE C: Blueprint loaded → SDUI Renderer ────────────────────────────
+  // ── STATE C: Blueprint loaded → SDUI Dynamic Engine or Renderer ──────────
   if (fetchedBlueprint && activeSduiPageId) {
     const normalized = normalizeBlueprint(fetchedBlueprint);
+    const hasDynamicWidgets =
+      (Array.isArray(normalized.widgets) && normalized.widgets.length > 0) ||
+      normalized.components?.some((c) => {
+        const t = (c?.type || c?.widgetType || "").toLowerCase();
+        return (
+          t.includes("display_card") ||
+          t.includes("input_group") ||
+          t.includes("action_button")
+        );
+      });
 
     return (
       <div className="mx-auto max-w-5xl">
@@ -64,12 +89,16 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* SDUI Page */}
+        {/* SDUI Page (Dynamic Engine or Legacy Renderer) */}
         <PageErrorBoundary
           pageId={String(activeSduiPageId)}
           pageTitle={normalized.pageTitle}
         >
-          <SduiRenderer blueprint={normalized} />
+          {hasDynamicWidgets ? (
+            <SduiDynamicEngine blueprint={normalized} />
+          ) : (
+            <SduiRenderer blueprint={normalized} />
+          )}
         </PageErrorBoundary>
       </div>
     );

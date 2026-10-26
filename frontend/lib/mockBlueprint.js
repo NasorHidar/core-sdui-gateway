@@ -110,28 +110,59 @@ const BLUEPRINTS = {
     ],
   },
   102: {
-    pageTitle: "Fund Transfer Portal",
+    pageTitle: "Fund Transfer Initiation",
     layoutType: "VERTICAL_STACK",
-    components: [
+    widgets: [
       {
-        type: "Skeleton_Card",
-        id: "transfer_alert",
+        widgetType: "Display_Card",
         props: {
-          title: "Notice",
-          content: "Daily inter-bank settlement limit is $50,000.00. Real-time domestic wire active.",
+          title: "Source Account Info",
+          data: {
+            accountName: "Nasor Hidar",
+            accountNo: "1029384756",
+            balance: "50,000 BDT",
+          },
         },
       },
       {
-        type: "Skeleton_Form",
-        id: "transfer_form_1",
+        widgetType: "Input_Group",
         props: {
-          title: "Transfer Initiation",
+          title: "Transfer Details",
           fields: [
-            { name: "sourceAccount", label: "Source Account", inputType: "text", required: true, placeholder: "Source account number" },
-            { name: "destAccount", label: "Beneficiary Account", inputType: "text", required: true, placeholder: "Recipient account number" },
-            { name: "amount", label: "Amount (USD)", inputType: "number", required: true, placeholder: "0.00" },
+            {
+              name: "targetAccount",
+              label: "Destination Account",
+              type: "text",
+              required: true,
+              placeholder: "Enter 10-digit account number",
+            },
+            {
+              name: "transferAmount",
+              label: "Amount (BDT)",
+              type: "number",
+              required: true,
+              min: 500,
+              placeholder: "Min 500 BDT",
+            },
+            {
+              name: "currency",
+              label: "Settlement Currency",
+              type: "text",
+              readOnly: true,
+              defaultValue: "BDT (Bangladeshi Taka)",
+            },
           ],
-          actionId: 102,
+        },
+      },
+      {
+        widgetType: "Action_Button",
+        props: {
+          label: "Initiate Transfer",
+          variant: "primary",
+          actionMetadata: {
+            endpoint: "/api/v1/core/transfers/execute",
+            method: "POST",
+          },
         },
       },
     ],
@@ -227,14 +258,37 @@ const BLUEPRINTS = {
 };
 
 /**
- * Simulates the network call to the Spring Boot backend.
- * Replace with `fetch(...)` once the API is reachable.
+ * Fetches the blueprint from the physical JSON file on disk,
+ * or falls back to in-memory/API.
  */
 export async function fetchBlueprint(pageId) {
-  // Simulated latency so the loading UI is testable.
-  // await new Promise((r) => setTimeout(r, 50));
+  // If in Node server environment (Next.js Server Component or API route), load directly from JSON
+  if (typeof window === "undefined") {
+    try {
+      const { loadBlueprintFromJson } = await import("@/lib/jsonBlueprintLoader");
+      const result = await loadBlueprintFromJson(pageId);
+      return result.blueprint;
+    } catch (e) {
+      // If error specifically says not found and we have fallback in memory, check BLUEPRINTS
+      const key = String(pageId).replace(/\.json$/i, "");
+      if (BLUEPRINTS[key]) {
+        return BLUEPRINTS[key];
+      }
+      throw e;
+    }
+  }
 
-  const key = String(pageId);
+  // Client-side execution: fetch from API endpoint
+  try {
+    const res = await fetch(`/api/blueprints/${pageId}`);
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (err) {
+    // ignore and check local map
+  }
+
+  const key = String(pageId).replace(/\.json$/i, "");
   const bp = BLUEPRINTS[key];
   if (!bp) {
     const err = new Error(`PageTemplate not found with identifier: ${pageId}`);
@@ -253,18 +307,47 @@ export async function fetchBlueprint(pageId) {
  */
 export function normalizeBlueprint(raw) {
   if (!raw || typeof raw !== "object") {
-    return { pageTitle: "", layoutType: "VERTICAL_STACK", components: [] };
+    return { pageTitle: "", layoutType: "VERTICAL_STACK", components: [], widgets: [], actions: [] };
   }
-  if (Array.isArray(raw.components)) return raw;
+
+  const actions = raw.actions || raw.pageActions || raw.uiBlueprint?.actions || [];
+
+  if (Array.isArray(raw.widgets)) {
+    return {
+      ...raw,
+      components: raw.components || raw.widgets,
+      widgets: raw.widgets,
+      actions: raw.actions || actions,
+    };
+  }
+  if (Array.isArray(raw.components)) {
+    return {
+      ...raw,
+      components: raw.components,
+      widgets: raw.widgets || raw.components,
+      actions: raw.actions || actions,
+    };
+  }
 
   const widgets = raw?.uiBlueprint?.widgets;
   if (Array.isArray(widgets)) {
     return {
+      pageId: raw.pageId,
       pageTitle: raw.pageTitle ?? "",
       layoutType: raw.layoutType ?? raw.uiBlueprint?.layout?.type ?? "VERTICAL_STACK",
       components: widgets,
+      widgets: widgets,
+      actions: actions,
+      uiBlueprint: raw.uiBlueprint,
     };
   }
 
-  return { pageTitle: raw.pageTitle ?? "", layoutType: "VERTICAL_STACK", components: [] };
+  return {
+    pageId: raw.pageId,
+    pageTitle: raw.pageTitle ?? "",
+    layoutType: "VERTICAL_STACK",
+    components: [],
+    widgets: [],
+    actions: actions,
+  };
 }

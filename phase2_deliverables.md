@@ -1,4 +1,4 @@
-# SDUI Forge — Phase 2 Deliverables
+# SDUI Forge | Core Banking Gateway (core-sdui-gateway) — Phase 2 Deliverables
 
 > **Status:** ✅ Files scaffolded | **Next.js 14 (App Router)** | **React 18** | **JavaScript (ES6+ / JSX)** | **Tailwind CSS 3.4**
 > **No TypeScript** — the renderer is plain JavaScript with defensive optional chaining and default values to keep malformed blueprints from white-screening the UI.

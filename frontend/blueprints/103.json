@@ -1,0 +1,21 @@
+{
+  "pageTitle": "Transaction History & Audit",
+  "layoutType": "VERTICAL_STACK",
+  "components": [
+    {
+      "type": "Skeleton_Card",
+      "id": "history_summary",
+      "props": {
+        "title": "Audit Ledger",
+        "content": "Showing cleared transactions for active banking session."
+      }
+    },
+    {
+      "type": "Skeleton_Grid",
+      "id": "history_grid_1",
+      "props": {
+        "title": "Cleared Ledger Entries"
+      }
+    }
+  ]
+}

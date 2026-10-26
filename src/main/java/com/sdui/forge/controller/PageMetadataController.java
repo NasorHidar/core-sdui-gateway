@@ -2,6 +2,8 @@ package com.sdui.forge.controller;
 
 import com.sdui.forge.dto.MenuNodeDto;
 import com.sdui.forge.dto.PageBlueprintDto;
+import com.sdui.forge.dto.PrimaryServiceDto;
+import com.sdui.forge.dto.SearchSkeletonDto;
 import com.sdui.forge.service.PageMetadataService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,7 +18,8 @@ import java.util.List;
  *
  * <p>Serves as the single gateway for frontend SDUI engines to fetch:
  * <ul>
- *     <li>The hierarchical navigation menu tree</li>
+ *     <li>The primary banking services from the SERVICE table</li>
+ *     <li>The hierarchical navigation menu tree from SERVICE_DETAILS</li>
  *     <li>Complete page blueprints (UI definition + available actions)</li>
  * </ul>
  *
@@ -33,6 +36,30 @@ public class PageMetadataController {
 
     public PageMetadataController(PageMetadataService pageMetadataService) {
         this.pageMetadataService = pageMetadataService;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // GET /api/v1/services
+    // Returns active primary services from the SERVICE table ordered by SVR_SORT_ORDER.
+    // ─────────────────────────────────────────────────────────────────────────
+
+    @GetMapping("/services")
+    public ResponseEntity<List<PrimaryServiceDto>> getPrimaryServices() {
+        log.debug("GET /api/v1/services — fetching active primary services ordered by SVR_SORT_ORDER");
+        List<PrimaryServiceDto> services = pageMetadataService.getPrimaryServices();
+        return ResponseEntity.ok(services);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // GET /api/v1/services/{serviceId}/sub-services
+    // Returns the nested hierarchical sub-service tree for a specific primary service.
+    // ─────────────────────────────────────────────────────────────────────────
+
+    @GetMapping("/services/{serviceId}/sub-services")
+    public ResponseEntity<List<MenuNodeDto>> getSubServicesForService(@PathVariable Long serviceId) {
+        log.debug("GET /api/v1/services/{}/sub-services — fetching hierarchical sub-services", serviceId);
+        List<MenuNodeDto> subServices = pageMetadataService.getSubServicesForService(serviceId);
+        return ResponseEntity.ok(subServices);
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -83,5 +110,22 @@ public class PageMetadataController {
         PageBlueprintDto blueprint = pageMetadataService.getPageBlueprint(pageId);
 
         return ResponseEntity.ok(blueprint);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // GET /api/v1/pages/{pageId}/search-skeleton
+    // Returns the dynamic search UI skeleton and validation rules for a page.
+    // ─────────────────────────────────────────────────────────────────────────
+
+    @GetMapping("/pages/{pageId}/search-skeleton")
+    public ResponseEntity<SearchSkeletonDto> getSearchSkeleton(
+            @PathVariable Long pageId,
+            @RequestParam(required = false) Long menuId) {
+
+        log.debug("GET /api/v1/pages/{}/search-skeleton (menuId={})", pageId, menuId);
+
+        SearchSkeletonDto skeleton = pageMetadataService.getSearchSkeleton(pageId, menuId);
+
+        return ResponseEntity.ok(skeleton);
     }
 }

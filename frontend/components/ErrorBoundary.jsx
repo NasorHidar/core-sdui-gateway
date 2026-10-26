@@ -37,6 +37,7 @@
  */
 
 import React from "react";
+import SduiFallbackError from "./SduiFallbackError";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // WIDGET-LEVEL ERROR BOUNDARY
@@ -217,9 +218,21 @@ export class PageErrorBoundary extends React.Component {
       return this.props.children;
     }
 
-    const { pageTitle } = this.props;
+    const { pageId, pageTitle } = this.props;
 
-    return <PageFallback pageTitle={pageTitle} onReload={this.handleReload} />;
+    return (
+      <SduiFallbackError
+        error={{
+          type: this.state.errorCode || "RENDER_ERROR",
+          status: 500,
+          pageId,
+          message: this.state.errorMessage || `Rendering failure on ${pageTitle || "banking page"}.`,
+        }}
+        pageId={pageId}
+        pageTitle={pageTitle}
+        onRetry={this.handleReload}
+      />
+    );
   }
 }
 

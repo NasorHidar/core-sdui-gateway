@@ -205,3 +205,92 @@ export async function executeDynamicAction(actionId, payload) {
     return { success: false, error: msg };
   }
 }
+
+/**
+ * Generic Dynamic Business Action Submitter
+ * --------------------------------------------------------------------
+ * Executes dynamic API calls driven 100% by runtime JSON actionMetadata
+ * ({ endpoint, method }) without hardcoded paths or static endpoints.
+ *
+ * @param {Object} actionMetadata - { endpoint: string, method?: string }
+ * @param {Object} formData       - Raw form dictionary from react-hook-form.
+ * @returns {Promise<{ success: boolean, data?: any, error?: string, status?: number }>}
+ */
+export async function dispatchDynamicAction(actionMetadata, formData = {}) {
+  if (!actionMetadata || !actionMetadata.endpoint) {
+    const errorMsg = "[ActionDispatcher] Invalid actionMetadata: 'endpoint' is required.";
+    console.error(errorMsg);
+    return { success: false, error: errorMsg };
+  }
+
+  const method = (actionMetadata.method || "POST").toUpperCase();
+  const endpoint = actionMetadata.endpoint;
+
+  const headers = {
+    "Content-Type": "application/json",
+    Accept: "application/json",
+  };
+
+  // Dynamically attach session JWT bearer token if user is authenticated
+  const jwtToken = useAppStore.getState?.()?.jwtToken;
+  if (jwtToken) {
+    headers["Authorization"] = `Bearer ${jwtToken}`;
+  }
+
+  let url = endpoint;
+  const requestInit = {
+    method,
+    headers,
+  };
+
+  if (method === "GET" || method === "HEAD") {
+    const queryParams = new URLSearchParams(
+      Object.entries(formData || {}).reduce((acc, [k, v]) => {
+        if (v !== undefined && v !== null && v !== "") {
+          acc[k] = String(v);
+        }
+        return acc;
+      }, {})
+    ).toString();
+
+    if (queryParams) {
+      url = `${endpoint}${endpoint.includes("?") ? "&" : "?"}${queryParams}`;
+    }
+  } else {
+    requestInit.body = JSON.stringify(formData || {});
+  }
+
+  console.info(`[ActionDispatcher] Executing dynamic action: ${method} ${url}`);
+
+  try {
+    const response = await fetch(url, requestInit);
+
+    let responseData = null;
+    const contentType = response.headers.get("content-type") || "";
+    if (contentType.includes("application/json")) {
+      try {
+        responseData = await response.json();
+      } catch {
+        responseData = null;
+      }
+    } else {
+      responseData = await response.text();
+    }
+
+    if (!response.ok) {
+      const errorMsg =
+        (responseData && typeof responseData === "object" && (responseData.message || responseData.error)) ||
+        `HTTP Error ${response.status}: ${response.statusText}`;
+      console.warn(`[ActionDispatcher] Request failed (${response.status}):`, errorMsg);
+      return { success: false, error: errorMsg, status: response.status, data: responseData };
+    }
+
+    return { success: true, data: responseData, status: response.status };
+  } catch (err) {
+    const errorMsg =
+      err?.message || "Network error: unable to connect to core banking service.";
+    console.error("[ActionDispatcher] Network/execution exception:", err);
+    return { success: false, error: errorMsg };
+  }
+}
+

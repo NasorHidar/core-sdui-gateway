@@ -1,0 +1,50 @@
+{
+  "pageTitle": "Customer Dashboard",
+  "layoutType": "VERTICAL_STACK",
+  "allowedRoles": "ADMIN,MAKER,CHECKER,AUDITOR",
+  "components": [
+    {
+      "type": "Skeleton_Card",
+      "id": "info_card_1",
+      "props": {
+        "title": "Account Info",
+        "content": "Enter details below to view account information."
+      }
+    },
+    {
+      "type": "Skeleton_Form",
+      "id": "search_form_1",
+      "props": {
+        "title": "Account Lookup",
+        "fields": [
+          {
+            "name": "accountNo",
+            "label": "Account Number",
+            "inputType": "text",
+            "required": true,
+            "placeholder": "e.g. 1234567890",
+            "rules": [
+              { "type": "required", "value": true, "message": "Account number is required" },
+              { "type": "minLength", "value": 6, "message": "Must be at least 6 digits" }
+            ]
+          },
+          {
+            "name": "branchCode",
+            "label": "Branch Code",
+            "inputType": "text",
+            "required": false,
+            "placeholder": "e.g. BR001"
+          }
+        ],
+        "actionId": 101
+      }
+    },
+    {
+      "type": "Skeleton_Grid",
+      "id": "statement_grid_1",
+      "props": {
+        "title": "Account Statement"
+      }
+    }
+  ]
+}

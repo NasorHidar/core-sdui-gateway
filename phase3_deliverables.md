@@ -1,4 +1,4 @@
-# SDUI Forge — Phase 3 Deliverables
+# SDUI Forge | Core Banking Gateway (core-sdui-gateway) — Phase 3 Deliverables
 
 > **Status:** ✅ Build passed (0 errors) | **Zustand** | **React Hook Form** | **Next.js 14** | **JavaScript**
 

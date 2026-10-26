@@ -1,0 +1,59 @@
+{
+  "pageTitle": "Fund Transfer Initiation",
+  "layoutType": "VERTICAL_STACK",
+  "allowedRoles": "ADMIN,MAKER",
+  "widgets": [
+    {
+      "widgetType": "Display_Card",
+      "props": {
+        "title": "Source Account Info",
+        "data": {
+          "accountName": "Nasor Hidar",
+          "accountNo": "1029384756",
+          "balance": "50,000 BDT"
+        }
+      }
+    },
+    {
+      "widgetType": "Input_Group",
+      "props": {
+        "title": "Transfer Details",
+        "fields": [
+          {
+            "name": "targetAccount",
+            "label": "Destination Account",
+            "type": "text",
+            "required": true,
+            "placeholder": "Enter 10-digit account number"
+          },
+          {
+            "name": "transferAmount",
+            "label": "Amount (BDT)",
+            "type": "number",
+            "required": true,
+            "min": 500,
+            "placeholder": "Min 500 BDT"
+          },
+          {
+            "name": "currency",
+            "label": "Settlement Currency",
+            "type": "text",
+            "readOnly": true,
+            "defaultValue": "BDT (Bangladeshi Taka)"
+          }
+        ]
+      }
+    },
+    {
+      "widgetType": "Action_Button",
+      "props": {
+        "label": "Initiate Transfer",
+        "variant": "primary",
+        "actionMetadata": {
+          "endpoint": "/api/v1/core/transfers/execute",
+          "method": "POST"
+        }
+      }
+    }
+  ]
+}

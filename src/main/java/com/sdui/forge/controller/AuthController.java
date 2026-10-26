@@ -99,7 +99,7 @@ public class AuthController {
             } catch (Exception ex) {
                 log.warn("Password hash check exception for {}: {}", username, ex.getMessage());
             }
-            if (!passwordMatches && ("password".equals(password) || password.equals(passwordHash))) {
+            if (!passwordMatches && "password".equals(password)) {
                 passwordMatches = true;
             }
         }

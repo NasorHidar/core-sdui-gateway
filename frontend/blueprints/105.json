@@ -1,0 +1,39 @@
+{
+  "pageTitle": "Commercial Lending Inquiry",
+  "layoutType": "VERTICAL_STACK",
+  "allowedRoles": "ADMIN,MAKER",
+  "components": [
+    {
+      "type": "Skeleton_Card",
+      "id": "rates_notice",
+      "props": {
+        "title": "Commercial APR Notice",
+        "content": "Benchmark Prime Rate + 1.75% applies for term facilities up to 60 months."
+      }
+    },
+    {
+      "type": "Skeleton_Form",
+      "id": "loan_calc_form",
+      "props": {
+        "title": "Loan Calculator",
+        "fields": [
+          {
+            "name": "facilityAmount",
+            "label": "Requested Amount ($)",
+            "inputType": "number",
+            "required": true,
+            "placeholder": "100000"
+          },
+          {
+            "name": "termMonths",
+            "label": "Amortization Term (Months)",
+            "inputType": "number",
+            "required": true,
+            "placeholder": "36"
+          }
+        ],
+        "actionId": 105
+      }
+    }
+  ]
+}

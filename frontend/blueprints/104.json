@@ -1,0 +1,39 @@
+{
+  "pageTitle": "Card Controls & Security",
+  "layoutType": "VERTICAL_STACK",
+  "allowedRoles": "ADMIN,MAKER,CHECKER",
+  "components": [
+    {
+      "type": "Skeleton_Card",
+      "id": "card_spec_card",
+      "props": {
+        "title": "Corporate Visa Debit (••• 4821)",
+        "content": "Status: ACTIVE | Daily POS Limit: $5,000 | Contactless: ENABLED"
+      }
+    },
+    {
+      "type": "Skeleton_Form",
+      "id": "card_settings_form",
+      "props": {
+        "title": "Security Preferences",
+        "fields": [
+          {
+            "name": "cardPin",
+            "label": "New ATM PIN (4 digits)",
+            "inputType": "password",
+            "required": true,
+            "placeholder": "••••"
+          },
+          {
+            "name": "intlUsage",
+            "label": "Allow International Transactions (Y/N)",
+            "inputType": "text",
+            "required": false,
+            "placeholder": "Y or N"
+          }
+        ],
+        "actionId": 104
+      }
+    }
+  ]
+}

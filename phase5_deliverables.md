@@ -1,5 +1,5 @@
-# Phase 5: Testing, Optimization & Go-Live Preparation
-## core-sdui-gateway — SDUI Forge Banking Platform
+# SDUI Forge | Core Banking Gateway (core-sdui-gateway) — Phase 5 Deliverables
+## Testing, Optimization & Go-Live Preparation
 
 ---
 

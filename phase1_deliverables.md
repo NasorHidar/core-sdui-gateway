@@ -1,4 +1,4 @@
-# SDUI Forge — Phase 1 Deliverables
+# SDUI Forge | Core Banking Gateway (core-sdui-gateway) — Phase 1 Deliverables
 
 > **Status:** ✅ Compiled successfully | **Java 21** | **Spring Boot 3.4.1** | **Spring Data JDBC** | **Oracle 23ai**
 

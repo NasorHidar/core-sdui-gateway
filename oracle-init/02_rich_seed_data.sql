@@ -71,9 +71,9 @@ MERGE INTO PAGE_TEMPLATE t USING (SELECT 102 AS PAGE_ID FROM DUAL) s ON (t.PAGE_
 WHEN NOT MATCHED THEN INSERT (PAGE_ID, PAGE_TITLE, PAGE_LAYOUT_TYPE, PAGE_UI_BLUEPRINT, PAGE_VERSION)
 VALUES (
     102,
-    'Fund Transfer Portal',
+    'Fund Transfer Initiation',
     'VERTICAL_STACK',
-    '{"pageTitle":"Fund Transfer Portal","layoutType":"VERTICAL_STACK","components":[{"type":"Skeleton_Card","id":"transfer_alert","props":{"title":"Notice","content":"Daily inter-bank settlement limit is $50,000.00. Transfers after 16:00 EST process next banking day."}},{"type":"Skeleton_Form","id":"transfer_form_1","props":{"title":"Transfer Initiation","fields":[{"name":"sourceAccount","label":"Source Account","inputType":"text","required":true,"placeholder":"Source Account (e.g., 100293847)"},{"name":"destAccount","label":"Beneficiary Account","inputType":"text","required":true,"placeholder":"Recipient Account (e.g., 992837461)"},{"name":"swiftCode","label":"SWIFT / BIC Code","inputType":"text","required":false,"placeholder":"e.g. CHASUS33"},{"name":"amount","label":"Transfer Amount (USD)","inputType":"number","required":true,"placeholder":"0.00"}],"actionId":102}}]}',
+    '{"pageTitle":"Fund Transfer Initiation","layoutType":"VERTICAL_STACK","widgets":[{"widgetType":"Display_Card","props":{"title":"Source Account Info","data":{"accountName":"Nasor Hidar","accountNo":"1029384756","balance":"50,000 BDT"}}},{"widgetType":"Input_Group","props":{"title":"Transfer Details","fields":[{"name":"targetAccount","label":"Destination Account","type":"text","required":true,"placeholder":"Enter 10-digit account number"},{"name":"transferAmount","label":"Amount (BDT)","type":"number","required":true,"min":500,"placeholder":"Min 500 BDT"},{"name":"currency","label":"Settlement Currency","type":"text","readOnly":true,"defaultValue":"BDT (Bangladeshi Taka)"}]}},{"widgetType":"Action_Button","props":{"label":"Initiate Transfer","variant":"primary","actionMetadata":{"endpoint":"/api/v1/core/transfers/execute","method":"POST"}}}]}',
     'v1.0.0'
 );
 
@@ -154,6 +154,23 @@ MERGE INTO SERVICE_DETAILS t USING (SELECT 999 AS SVRD_MENU_ID FROM DUAL) s ON (
 WHEN NOT MATCHED THEN INSERT (SVRD_MENU_ID, SVR_ID, SVRD_PARENT_MENU_ID, SVRD_DISPLAY_ORDER, SVRD_MENU_NAME, SVRD_MENU_CODE, SVRD_MENU_URL, SVRD_MENU_TYPE, SVRD_ALLOWED_ROLES, SVRD_PAGE_ID, SVRD_IS_ACTIVE)
 VALUES (999, 1, 1, 9, 'Fallback Demo', 'FALLBACK_999', '/dynamic-page/999', 'LEAF', 'ADMIN,MAKER,CHECKER', 999, 1);
 
+-- Multi-Level Nested Hierarchical Sub-menus
+MERGE INTO SERVICE_DETAILS t USING (SELECT 1021 AS SVRD_MENU_ID FROM DUAL) s ON (t.SVRD_MENU_ID = s.SVRD_MENU_ID)
+WHEN NOT MATCHED THEN INSERT (SVRD_MENU_ID, SVR_ID, SVRD_PARENT_MENU_ID, SVRD_DISPLAY_ORDER, SVRD_MENU_NAME, SVRD_MENU_CODE, SVRD_MENU_URL, SVRD_MENU_TYPE, SVRD_ALLOWED_ROLES, SVRD_PAGE_ID, SVRD_IS_ACTIVE)
+VALUES (1021, 1, 102, 1, 'Internal Account Transfer', 'TRANSFER_INTERNAL', '/dynamic-page/102', 'LEAF', 'ADMIN,MAKER', 102, 1);
+
+MERGE INTO SERVICE_DETAILS t USING (SELECT 1022 AS SVRD_MENU_ID FROM DUAL) s ON (t.SVRD_MENU_ID = s.SVRD_MENU_ID)
+WHEN NOT MATCHED THEN INSERT (SVRD_MENU_ID, SVR_ID, SVRD_PARENT_MENU_ID, SVRD_DISPLAY_ORDER, SVRD_MENU_NAME, SVRD_MENU_CODE, SVRD_MENU_URL, SVRD_MENU_TYPE, SVRD_ALLOWED_ROLES, SVRD_PAGE_ID, SVRD_IS_ACTIVE)
+VALUES (1022, 1, 102, 2, 'Instant Wire Transfer (RTGS)', 'TRANSFER_RTGS', '/dynamic-page/102', 'LEAF', 'ADMIN,MAKER', 102, 1);
+
+MERGE INTO SERVICE_DETAILS t USING (SELECT 1041 AS SVRD_MENU_ID FROM DUAL) s ON (t.SVRD_MENU_ID = s.SVRD_MENU_ID)
+WHEN NOT MATCHED THEN INSERT (SVRD_MENU_ID, SVR_ID, SVRD_PARENT_MENU_ID, SVRD_DISPLAY_ORDER, SVRD_MENU_NAME, SVRD_MENU_CODE, SVRD_MENU_URL, SVRD_MENU_TYPE, SVRD_ALLOWED_ROLES, SVRD_PAGE_ID, SVRD_IS_ACTIVE)
+VALUES (1041, 2, 104, 1, 'PIN Security & Biometrics', 'CARD_PIN', '/dynamic-page/104', 'LEAF', 'ADMIN,MAKER,CHECKER', 104, 1);
+
+MERGE INTO SERVICE_DETAILS t USING (SELECT 1042 AS SVRD_MENU_ID FROM DUAL) s ON (t.SVRD_MENU_ID = s.SVRD_MENU_ID)
+WHEN NOT MATCHED THEN INSERT (SVRD_MENU_ID, SVR_ID, SVRD_PARENT_MENU_ID, SVRD_DISPLAY_ORDER, SVRD_MENU_NAME, SVRD_MENU_CODE, SVRD_MENU_URL, SVRD_MENU_TYPE, SVRD_ALLOWED_ROLES, SVRD_PAGE_ID, SVRD_IS_ACTIVE)
+VALUES (1042, 2, 104, 2, 'Global POS & ATM Limits', 'CARD_LIMITS', '/dynamic-page/104', 'LEAF', 'ADMIN,MAKER,CHECKER', 104, 1);
+
 -- ═══════════════════════════════════════════════════════════════════════════════
 -- 5. PAGE_ACTION: Dynamic Actions & Event Handlers
 -- ═══════════════════════════════════════════════════════════════════════════════
@@ -172,17 +189,39 @@ VALUES (
 );
 
 MERGE INTO PAGE_ACTION t USING (SELECT 102 AS ACT_ID FROM DUAL) s ON (t.ACT_ID = s.ACT_ID)
+WHEN MATCHED THEN UPDATE SET
+    ACT_NAME = 'Execute Transaction',
+    ACT_TARGET_ENDPOINT = '/api/v1/core/transfers/execute',
+    ACT_DISPLAY_ORDER = 1
 WHEN NOT MATCHED THEN INSERT (ACT_ID, SVRD_MENU_ID, ACT_NAME, ACT_TYPE, ACT_HTTP_METHOD, ACT_TARGET_ENDPOINT, ACT_TARGET_WIDGET, ACT_JSON_SCHEMA, ACT_DISPLAY_ORDER)
 VALUES (
     102,
     102,
-    'Execute Fund Transfer',
+    'Execute Transaction',
     'BUSINESS_API',
     'POST',
     '/api/v1/core/transfers/execute',
     'transfer_alert',
-    '{"type":"object","properties":{"sourceAccount":{"type":"string"},"destAccount":{"type":"string"},"amount":{"type":"number"}},"required":["sourceAccount","destAccount","amount"]}',
+    '{"type":"object","properties":{"sourceAccount":{"type":"string"},"destAccount":{"type":"string"},"amount":{"type":"number"},"currency":{"type":"string"}},"required":["sourceAccount","destAccount","amount"]}',
     1
+);
+
+MERGE INTO PAGE_ACTION t USING (SELECT 1022 AS ACT_ID FROM DUAL) s ON (t.ACT_ID = s.ACT_ID)
+WHEN MATCHED THEN UPDATE SET
+    ACT_NAME = 'Confirm',
+    ACT_TARGET_ENDPOINT = '/api/v1/core/transfers/confirm',
+    ACT_DISPLAY_ORDER = 2
+WHEN NOT MATCHED THEN INSERT (ACT_ID, SVRD_MENU_ID, ACT_NAME, ACT_TYPE, ACT_HTTP_METHOD, ACT_TARGET_ENDPOINT, ACT_TARGET_WIDGET, ACT_JSON_SCHEMA, ACT_DISPLAY_ORDER)
+VALUES (
+    1022,
+    102,
+    'Confirm',
+    'BUSINESS_API',
+    'POST',
+    '/api/v1/core/transfers/confirm',
+    'transfer_alert',
+    '{"type":"object","properties":{"sourceAccount":{"type":"string"},"destAccount":{"type":"string"},"amount":{"type":"number"},"currency":{"type":"string"}},"required":["sourceAccount","destAccount","amount"]}',
+    2
 );
 
 MERGE INTO PAGE_ACTION t USING (SELECT 103 AS ACT_ID FROM DUAL) s ON (t.ACT_ID = s.ACT_ID)

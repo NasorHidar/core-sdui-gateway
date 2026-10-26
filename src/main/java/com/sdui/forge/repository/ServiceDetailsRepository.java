@@ -63,4 +63,22 @@ public interface ServiceDetailsRepository extends ListCrudRepository<ServiceDeta
                AND SVRD_IS_ACTIVE = 1
             """)
     List<ServiceDetails> findActiveByPageId(Long pageId);
+
+    /**
+     * Finds all active hierarchical menu nodes belonging to a specific primary service.
+     */
+    @Query("""
+            SELECT SVRD_MENU_ID,
+                   SVR_ID,
+                   SVRD_PARENT_MENU_ID,
+                   SVRD_MENU_NAME,
+                   SVRD_ALLOWED_ROLES,
+                   SVRD_PAGE_ID,
+                   SVRD_IS_ACTIVE
+              FROM SERVICE_DETAILS
+             WHERE SVR_ID = :serviceId
+               AND SVRD_IS_ACTIVE = 1
+             ORDER BY SVRD_DISPLAY_ORDER ASC, SVRD_MENU_NAME ASC
+            """)
+    List<ServiceDetails> findActiveByServiceId(Long serviceId);
 }

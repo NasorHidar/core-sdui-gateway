@@ -1,21 +1,24 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import useAppStore from "@/store/useAppStore";
 import LeftSidebar from "@/components/LeftSidebar";
+import AuditLogModal from "@/components/AuditLogModal";
+import { isTokenExpired } from "@/utils/rbac";
 
 /**
  * DashboardLayout
  * ─────────────────────────────────────────────────────────────────────────────
  * Wraps all /dashboard/* routes with:
  *   - JWT auth guard (redirect to /login if unauthenticated)
- *   - Top header bar with branding + user info + logout
+ *   - Top header bar with branding + user info + logout + live audit trail
  *   - Responsive left sidebar (collapses when no service is selected)
  *   - Scrollable main content area
  */
 export default function DashboardLayout({ children }) {
   const router = useRouter();
+  const [showAuditModal, setShowAuditModal] = useState(false);
   const jwtToken = useAppStore((s) => s.jwtToken);
   const user = useAppStore((s) => s.user);
   const selectedService = useAppStore((s) => s.selectedService);
@@ -23,22 +26,23 @@ export default function DashboardLayout({ children }) {
   const goHome = useAppStore((s) => s.goHome);
   const fetchMainServices = useAppStore((s) => s.fetchMainServices);
 
-  // Auth guard: redirect to login if no JWT
+  // Auth guard: redirect to login if no JWT or token has expired
   useEffect(() => {
-    if (!jwtToken) {
+    if (!jwtToken || isTokenExpired(jwtToken)) {
+      logout(jwtToken ? "Your session has expired. Please sign in again." : null);
       router.replace("/login");
     }
-  }, [jwtToken, router]);
+  }, [jwtToken, router, logout]);
 
   // Fetch services on mount (after auth is confirmed)
   useEffect(() => {
-    if (jwtToken) {
+    if (jwtToken && !isTokenExpired(jwtToken)) {
       fetchMainServices();
     }
   }, [jwtToken, fetchMainServices]);
 
   // Don't render chrome until auth is confirmed
-  if (!jwtToken) return null;
+  if (!jwtToken || isTokenExpired(jwtToken)) return null;
 
   const handleLogout = () => {
     logout();
@@ -66,7 +70,17 @@ export default function DashboardLayout({ children }) {
           </div>
         </button>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
+          {/* Live Audit Trail / ACTIVITY_LOG Modal Trigger */}
+          <button
+            type="button"
+            onClick={() => setShowAuditModal(true)}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50/70 px-3 py-1.5 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-100 active:scale-95 shadow-2xs"
+          >
+            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span>Audit Trail (ACTIVITY_LOG)</span>
+          </button>
+
           <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
             {user?.username || "User"} · {user?.roles || "N/A"}
           </span>
@@ -78,6 +92,12 @@ export default function DashboardLayout({ children }) {
           </button>
         </div>
       </header>
+
+      {/* ── Live Audit Log Modal ────────────────────────────────────────── */}
+      <AuditLogModal
+        isOpen={showAuditModal}
+        onClose={() => setShowAuditModal(false)}
+      />
 
       {/* ── Body: Sidebar + Main Content ─────────────────────────────────── */}
       <div className="flex flex-1 overflow-hidden">
