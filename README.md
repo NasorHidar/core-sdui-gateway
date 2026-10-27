@@ -307,6 +307,9 @@ JAVA_OPTS="
 
 ## 9. Quick Start & Execution Guide
 
+> [!TIP]
+> **Setting up on a brand-new device?** See the comprehensive [setup_guide.md](file:///f:/Research/core-sdui-gateway/setup_guide.md) for complete zero-to-hero instructions covering Git, Java 21, Maven, Node.js, Docker Desktop, WSL 2, and troubleshooting for clean machines.
+
 ### Prerequisites
 - **Java Development Kit:** JDK 21+
 - **Build Tool:** Apache Maven 3.9+
